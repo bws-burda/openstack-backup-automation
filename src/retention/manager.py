@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set
 
 from ..backup.models import BackupInfo, BackupType
@@ -365,7 +365,7 @@ class RetentionManager(RetentionManagerInterface):
         if not backup_info.created_at:
             return 0
         
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         age = now - backup_info.created_at
         return age.days
 
@@ -524,7 +524,7 @@ class RetentionManager(RetentionManagerInterface):
         """
         operation_plan = {
             "dry_run": dry_run,
-            "timestamp": datetime.now(UTC),
+            "timestamp": datetime.now(timezone.utc),
             "policies_applied": list(retention_policies.keys()),
             "total_candidates": 0,
             "safe_deletions": [],
@@ -755,7 +755,7 @@ class RetentionManager(RetentionManagerInterface):
             # No creation date, assume we need a new one
             return True
         
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         days_since_last_full = (now - last_full_backup.created_at).days
         
         should_create = days_since_last_full >= full_backup_interval
@@ -813,7 +813,7 @@ class RetentionManager(RetentionManagerInterface):
         strategy["last_full_backup_id"] = last_full_backup.backup_id
         
         if last_full_backup.created_at:
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             days_since_last_full = (now - last_full_backup.created_at).days
             strategy["days_since_last_full"] = days_since_last_full
             

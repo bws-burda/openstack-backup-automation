@@ -1,7 +1,7 @@
 """Backup strategy logic for determining full vs incremental backups."""
 
 import logging
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional
 
 from .chain_manager import BackupChainManager
@@ -131,7 +131,7 @@ class BackupStrategy:
         if not last_full_backup.created_at:
             return True
         
-        days_since_full = (datetime.now(UTC) - last_full_backup.created_at).days
+        days_since_full = (datetime.now(timezone.utc) - last_full_backup.created_at).days
         return days_since_full >= self.full_backup_interval_days
 
     def calculate_next_full_backup_date(self, resource_id: str) -> Optional[datetime]:

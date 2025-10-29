@@ -9,7 +9,7 @@ Neue Features:
 """
 
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict
 
 def example_updated_tag_formats():

@@ -9,7 +9,7 @@ Zeigt die Verwendung von:
 """
 
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict
 
 # Beispiel-Imports (in echter Anwendung)

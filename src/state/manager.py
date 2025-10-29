@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -65,7 +65,7 @@ class StateManager(StateManagerInterface):
                 backup_info.resource_type,
                 backup_info.backup_type.value,
                 backup_info.parent_backup_id,
-                backup_info.created_at or datetime.now(UTC),
+                backup_info.created_at or datetime.now(timezone.utc),
                 backup_info.verified,
                 backup_info.size_bytes,
                 backup_info.schedule_tag or ""
@@ -126,7 +126,7 @@ class StateManager(StateManagerInterface):
         Returns:
             List of backup info for old backups
         """
-        cutoff_date = datetime.now(UTC) - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         with self._get_connection() as conn:
             cursor = conn.execute("""
@@ -338,7 +338,7 @@ class StateManager(StateManagerInterface):
         Returns:
             Number of records deleted
         """
-        cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
         
         with self._get_connection() as conn:
             cursor = conn.execute("""

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from .models import (BackupInfo, BackupOperation, BackupType, OperationResult,
@@ -148,8 +148,8 @@ class BackupEngine:
                             operation=group[i],
                             status=OperationStatus.FAILED,
                             error_message=str(result),
-                            started_at=datetime.now(UTC),
-                            completed_at=datetime.now(UTC),
+                            started_at=datetime.now(timezone.utc),
+                            completed_at=datetime.now(timezone.utc),
                         )
                         all_results.append(failed_result)
                     else:
@@ -162,8 +162,8 @@ class BackupEngine:
                         operation=operation,
                         status=OperationStatus.TIMEOUT,
                         error_message=f"Operation timed out after {timeout_seconds} seconds",
-                        started_at=datetime.now(UTC),
-                        completed_at=datetime.now(UTC),
+                        started_at=datetime.now(timezone.utc),
+                        completed_at=datetime.now(timezone.utc),
                     )
                     all_results.append(timeout_result)
 
@@ -176,7 +176,7 @@ class BackupEngine:
         result = OperationResult(
             operation=operation,
             status=OperationStatus.PENDING,
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(timezone.utc),
         )
 
         try:
@@ -212,7 +212,7 @@ class BackupEngine:
                             )
 
             # Generate backup name with timestamp
-            timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             backup_name = f"{operation.resource_name}-{actual_backup_type.value}-{timestamp}"
 
             # Execute the appropriate backup operation with timeout
@@ -277,12 +277,12 @@ class BackupEngine:
 
             result.status = OperationStatus.COMPLETED
             result.backup_info = backup_info
-            result.completed_at = datetime.now(UTC)
+            result.completed_at = datetime.now(timezone.utc)
 
         except Exception as e:
             result.status = OperationStatus.FAILED
             result.error_message = str(e)
-            result.completed_at = datetime.now(UTC)
+            result.completed_at = datetime.now(timezone.utc)
 
         return result
 

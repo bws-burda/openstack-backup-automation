@@ -1,7 +1,7 @@
 """Backup operation data models."""
 
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -41,7 +41,7 @@ class BackupInfo:
     def __post_init__(self):
         """Set created_at if not provided."""
         if self.created_at is None:
-            self.created_at = datetime.now(UTC)
+            self.created_at = datetime.now(timezone.utc)
 
 
 @dataclass

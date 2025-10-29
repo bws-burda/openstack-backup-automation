@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from ..backup.models import BackupInfo, OperationResult, OperationStatus
@@ -36,7 +36,7 @@ class OperationVerifier:
         Returns:
             bool: True if backup is verified as successful, False otherwise
         """
-        start_time = datetime.now(UTC)
+        start_time = datetime.now(timezone.utc)
         timeout_seconds = timeout_minutes * 60
         
         self.logger.info(
@@ -69,7 +69,7 @@ class OperationVerifier:
                     return False
                 
                 # Check timeout
-                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
                 if elapsed >= timeout_seconds:
                     self.logger.error(
                         f"Verification timeout for backup {backup_info.backup_id} "

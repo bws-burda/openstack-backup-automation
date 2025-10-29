@@ -3,7 +3,7 @@
 import logging
 import smtplib
 import socket
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any, Dict, List
@@ -56,7 +56,7 @@ class NotificationService(NotificationServiceInterface):
 
     def _get_error_template(self, error: Exception, error_type: str, context: Dict[str, Any]) -> str:
         """Get error-specific email template."""
-        timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         operation = context.get('operation', 'Unknown')
         resource_id = context.get('resource_id', 'Unknown')
         resource_type = context.get('resource_type', 'Unknown')
@@ -147,7 +147,7 @@ OpenStack Backup Automation System
         body = f"""
 OpenStack Backup Automation Report
 
-Time: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}
+Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 Total Operations: {total_operations}
 Successful: {len(successful_operations)}
 Failed: {len(failed_operations)}
@@ -190,7 +190,7 @@ OpenStack Backup Automation System
         body = f"""
 OpenStack Backup Retention Cleanup Report
 
-Time: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}
+Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 Backups Deleted: {deleted_count}
 Errors: {len(errors)}
 
@@ -223,7 +223,7 @@ OpenStack Backup Automation System
             msg["From"] = self.email_settings.sender
             msg["To"] = self.email_settings.recipient
             msg["Subject"] = subject
-            msg["Date"] = datetime.now(UTC).strftime('%a, %d %b %Y %H:%M:%S +0000')
+            msg["Date"] = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')
 
             # Attach body
             msg.attach(MIMEText(body, "plain", "utf-8"))
