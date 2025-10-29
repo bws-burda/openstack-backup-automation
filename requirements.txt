@@ -1,0 +1,6 @@
+# Core runtime dependencies
+openstacksdk>=1.0.0
+PyYAML>=6.0
+click>=8.0.0
+
+# Note: sqlite3, asyncio, smtplib are part of Python standard library

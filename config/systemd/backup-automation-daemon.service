@@ -1,0 +1,36 @@
+[Unit]
+Description=OpenStack Backup Automation Daemon
+Documentation=https://github.com/example/openstack-backup-automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=backup
+Group=backup
+WorkingDirectory=/var/lib/backup-automation
+Environment=CONFIG_FILE=/etc/backup-automation/config.yaml
+ExecStart=/usr/local/bin/openstack-backup-automation run --daemon
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/backup-automation
+ReadOnlyPaths=/etc/backup-automation
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

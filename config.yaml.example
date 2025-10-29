@@ -1,0 +1,174 @@
+# OpenStack Backup Automation Configuration
+# Copy this file to config.yaml and adjust values for your environment
+
+openstack:
+  # Authentication method: "application_credential" (recommended) or "password"
+  auth_method: "application_credential"
+  
+  # Application Credential authentication (recommended)
+  application_credential_id: "your-app-credential-id"
+  application_credential_secret: "your-app-credential-secret"
+  
+  # Alternative: Username/Password authentication
+  # username: "your-username"
+  # password: "your-password"
+  # user_domain_name: "Default"
+  
+  # OpenStack endpoints
+  auth_url: "https://your-openstack.example.com:5000/v3"
+  project_name: "your-project-name"
+  project_domain_name: "Default"
+  region_name: "RegionOne"
+
+backup:
+  # Default full backup interval (days between full backups)
+  # Can be overridden per resource with tag: BACKUP-DAILY-0300-FULL14
+  full_backup_interval_days: 7
+  
+  # Default retention period for backups (days)
+  # Can be overridden per resource with tag: BACKUP-DAILY-0300-RETAIN60
+  retention_days: 30
+  
+  # Maximum concurrent backup/snapshot operations
+  max_concurrent_operations: 5
+  
+  # Timeout for individual operations (minutes)
+  operation_timeout_minutes: 60
+
+notifications:
+  # Email settings for error notifications
+  email_recipient: "admin@example.com"
+  email_sender: "backup-system@example.com"
+  
+  # Optional: SMTP settings (uses local sendmail if not specified)
+  # smtp_server: "smtp.example.com"
+  # smtp_port: 587
+  # smtp_username: "smtp-user"
+  # smtp_password: "smtp-password"
+  # smtp_use_tls: true
+
+scheduling:
+  # Execution mode: "cron" (default) or "daemon"
+  mode: "cron"
+  
+  # Check interval for daemon mode (minutes)
+  check_interval_minutes: 15
+
+# Optional: Custom retention policies per resource type
+# retention_policies:
+#   instances:
+#     retention_days: 14
+#   volumes:
+#     retention_days: 30
+
+# =============================================================================
+# TAG EXAMPLES - How to tag your OpenStack resources for automatic backups
+# =============================================================================
+
+# BASIC TAG FORMATS:
+# ------------------
+# SNAPSHOT-{FREQUENCY}-{TIME}     - Creates snapshots (fast, for instances)
+# BACKUP-{FREQUENCY}-{TIME}       - Creates backups (slower, for volumes)
+#
+# FREQUENCY: DAILY, WEEKLY, MONTHLY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+# TIME: HHMM (24-hour format, e.g., 0300 = 3:00 AM)
+
+# EXTENDED TAG FORMATS (override config defaults):
+# ------------------------------------------------
+# Add -RETAIN{DAYS} to override retention_days from config
+# Add -FULL{DAYS} to override full_backup_interval_days from config
+# Can combine both: -RETAIN{DAYS}-FULL{DAYS}
+
+# EXAMPLE COMMANDS TO TAG YOUR RESOURCES:
+# =======================================
+
+# 1. BASIC SNAPSHOTS (fast, for instances):
+# openstack server set --tag "SNAPSHOT-DAILY-0300" web-server-01
+# openstack server set --tag "SNAPSHOT-WEEKLY-0200" test-server
+# openstack server set --tag "SNAPSHOT-MONDAY-0100" dev-server
+
+# 2. BASIC BACKUPS (comprehensive, for volumes):
+# openstack server set --tag "BACKUP-DAILY-0200" database-server
+# openstack volume set --tag "BACKUP-WEEKLY-0100" storage-volume
+# openstack server set --tag "BACKUP-MONTHLY-0000" archive-server
+
+# 3. CUSTOM RETENTION (override config retention_days):
+# openstack server set --tag "BACKUP-DAILY-0200-RETAIN90" critical-database
+# openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN7" temp-server
+# openstack volume set --tag "BACKUP-WEEKLY-0100-RETAIN180" important-data
+
+# 4. CUSTOM FULL BACKUP INTERVAL (override config full_backup_interval_days):
+# openstack server set --tag "BACKUP-DAILY-0200-FULL3" high-change-server
+# openstack volume set --tag "BACKUP-DAILY-0300-FULL14" stable-volume
+# openstack server set --tag "BACKUP-WEEKLY-0100-FULL1" weekly-full-server
+
+# 5. COMBINED CUSTOM SETTINGS (retention + full backup interval):
+# openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL30" compliance-server
+# openstack volume set --tag "BACKUP-DAILY-0300-RETAIN60-FULL7" production-db
+# openstack server set --tag "BACKUP-WEEKLY-0100-RETAIN90-FULL1" weekly-archive
+
+# REAL-WORLD SCENARIOS:
+# ====================
+
+# Production Database Server:
+# - Daily backups at 2 AM
+# - Keep backups for 1 year (compliance)
+# - Full backup every 7 days (balance between space and restore speed)
+# openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL7" prod-database
+
+# Web Server Farm:
+# - Daily snapshots at 3 AM (fast recovery)
+# - Keep snapshots for 30 days
+# openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-01
+# openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-02
+
+# Development Environment:
+# - Weekly snapshots on Sunday at 1 AM
+# - Keep only 2 weeks (save space)
+# openstack server set --tag "SNAPSHOT-SUNDAY-0100-RETAIN14" dev-environment
+
+# File Server:
+# - Weekly backups on Saturday at midnight
+# - Keep for 6 months
+# - Full backup every time (no incrementals for file servers)
+# openstack server set --tag "BACKUP-SATURDAY-0000-RETAIN180-FULL1" file-server
+
+# Test/Staging Environment:
+# - Daily snapshots at 4 AM
+# - Keep only 1 week (frequent changes, short retention)
+# openstack server set --tag "SNAPSHOT-DAILY-0400-RETAIN7" staging-server
+
+# Archive Storage:
+# - Monthly backups on 1st at midnight
+# - Keep for 7 years (long-term archive)
+# - Full backup every time
+# openstack volume set --tag "BACKUP-MONTHLY-0000-RETAIN2555-FULL1" archive-volume
+
+# High-Frequency Database:
+# - Daily backups at 1 AM
+# - Keep for 3 months
+# - Full backup every 3 days (frequent changes)
+# openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-freq-db
+
+# PRIORITY SYSTEM:
+# ===============
+# 1. Tag settings (RETAIN/FULL in tag) - HIGHEST PRIORITY
+# 2. Config defaults (retention_days, full_backup_interval_days) - FALLBACK
+#
+# Example: Server with tag "BACKUP-DAILY-0300-RETAIN60"
+# - Uses RETAIN60 from tag (overrides config retention_days)
+# - Uses config full_backup_interval_days (no FULL in tag)
+
+# MONITORING YOUR BACKUPS:
+# ========================
+# View created snapshots: openstack image list --tag-filter backup
+# View created backups:   openstack volume backup list
+# Check logs:            tail -f logs/backup.log
+# System health:         python3 -m src.cli.main health
+
+# Database configuration
+database_path: "./backup.db"
+
+# Logging configuration
+log_level: "INFO"
+log_file: "./logs/backup.log"
