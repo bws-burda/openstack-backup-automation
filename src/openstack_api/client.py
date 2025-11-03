@@ -79,6 +79,10 @@ class OpenStackClient(OpenStackClientInterface):
                 "project_name": self._credentials.project_name,
                 "project_domain_name": self._credentials.project_domain_name,
             }
+            
+            # Add region if specified
+            if self._credentials.region_name:
+                auth_args["region_name"] = self._credentials.region_name
 
             if self._credentials.auth_method == AuthMethod.APPLICATION_CREDENTIAL:
                 if not self._credentials.application_credential_id or not self._credentials.application_credential_secret:

@@ -38,6 +38,9 @@ class OpenStackCredentials:
     password: Optional[str] = None
     user_domain_name: Optional[str] = "Default"
     project_domain_name: Optional[str] = "Default"
+    
+    # Optional fields
+    region_name: Optional[str] = None
 
     def __post_init__(self):
         """Validate OpenStack credentials after initialization."""
