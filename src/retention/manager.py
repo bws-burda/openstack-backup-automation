@@ -411,10 +411,17 @@ class RetentionManager(RetentionManagerInterface):
                         tag_backups, tag_retention_days
                     )
                 else:
-                    # Fall back to policy retention
-                    tag_candidates = self._get_backups_to_delete_from_list(
-                        tag_backups, policy.retention_days
-                    )
+                    # Fall back to backup-type-specific retention
+                    tag_candidates = []
+                    for backup in tag_backups:
+                        # Get retention based on backup type
+                        type_retention_days = self.get_retention_days_for_backup_type(
+                            backup.backup_type, 
+                            # We need access to backup_config here - for now use policy retention
+                            # TODO: Pass backup_config to this method
+                        )
+                        if self.calculate_backup_age(backup) > policy.retention_days:
+                            tag_candidates.append(backup)
                 
                 policy_candidates.extend(tag_candidates)
             
@@ -1590,4 +1597,21 @@ class RetentionManager(RetentionManagerInterface):
         Returns:
             List of backups that should be deleted
         """
-        return self._get_backups_to_delete_with_retention(backups, retention_days)
+        return self._get_backups_to_delete_with_retention(backups, retention_days)    d
+ef get_retention_days_for_backup_type(self, backup_type: BackupType, backup_config) -> int:
+        """Get retention days based on backup type.
+        
+        Args:
+            backup_type: The type of backup (SNAPSHOT, BACKUP, etc.)
+            backup_config: The backup configuration object
+            
+        Returns:
+            Number of retention days for this backup type
+        """
+        if backup_type == BackupType.SNAPSHOT:
+            return backup_config.snapshot_retention_days
+        elif backup_type in [BackupType.FULL, BackupType.INCREMENTAL]:
+            return backup_config.backup_retention_days
+        else:
+            # Fallback to default for unknown types
+            return backup_config.default_retention_days

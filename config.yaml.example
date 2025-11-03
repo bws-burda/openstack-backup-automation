@@ -25,9 +25,15 @@ backup:
   # Can be overridden per resource with tag: BACKUP-DAILY-0300-FULL14
   full_backup_interval_days: 7
   
-  # Default retention period for backups (days)
-  # Can be overridden per resource with tag: BACKUP-DAILY-0300-RETAIN60
-  retention_days: 30
+  # Retention periods by backup type (days)
+  # Snapshots: Fast recovery, shorter retention
+  snapshot_retention_days: 7
+  
+  # Backups: Long-term archival, longer retention  
+  backup_retention_days: 30
+  
+  # Legacy: Default retention for backward compatibility
+  # retention_days: 30
   
   # Maximum concurrent backup/snapshot operations
   max_concurrent_operations: 5
