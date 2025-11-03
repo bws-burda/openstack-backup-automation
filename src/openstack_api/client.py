@@ -103,7 +103,7 @@ class OpenStackClient(OpenStackClientInterface):
                 # For application credentials, we need to explicitly set the auth type
                 auth_args = {
                     **base_args,
-                    "auth_type": "v3application_credential",
+                    "auth_type": "v3applicationcredential",
                     "application_credential_id": self._credentials.application_credential_id,
                     "application_credential_secret": self._credentials.application_credential_secret,
                 }
