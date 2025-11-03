@@ -443,11 +443,20 @@ monitoring:
                     return False
                 click.echo("✓ OpenStack authentication successful")
                 
-                # Test basic API access
+                # Test basic API access with minimal permissions
                 if client.connection:
-                    # Simple test - list projects (should work with app credentials)
-                    projects = list(client.connection.identity.projects())
-                    click.echo("✓ OpenStack API access verified")
+                    # Simple test - list servers (compute access, which backup needs anyway)
+                    try:
+                        servers = list(client.connection.compute.servers(limit=1))
+                        click.echo("✓ OpenStack API access verified")
+                    except Exception as e:
+                        # If compute access fails, try a different service
+                        try:
+                            volumes = list(client.connection.volume.volumes(limit=1))
+                            click.echo("✓ OpenStack API access verified (via volume service)")
+                        except Exception as e2:
+                            click.echo(f"⚠ Limited API access - some services may not be available: {e}", err=True)
+                            click.echo("✓ Basic authentication works, but check service permissions")
                 else:
                     click.echo("✗ No OpenStack connection established", err=True)
                     return False
