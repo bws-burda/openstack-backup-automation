@@ -1,7 +1,4 @@
 """Command-line interface module."""
 
-from .main import main
-
-__all__ = [
-    "main",
-]
+# No automatic imports to avoid module loading conflicts
+__all__ = []

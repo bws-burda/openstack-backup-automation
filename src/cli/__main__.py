@@ -1,4 +1,8 @@
-"""Entry point for running the CLI as a module."""
+"""Entry point for CLI module execution.
+
+This allows the CLI to be executed with:
+    python3 -m src.cli [command] [options]
+"""
 
 from .main import main
 
