@@ -85,7 +85,8 @@ class OpenStackClient(OpenStackClientInterface):
             raise AuthenticationError("No credentials available for authentication")
 
         try:
-            auth_args = {
+            # Base connection arguments
+            base_args = {
                 "auth_url": self._credentials.auth_url,
                 "project_name": self._credentials.project_name,
                 "project_domain_name": self._credentials.project_domain_name,
@@ -93,27 +94,32 @@ class OpenStackClient(OpenStackClientInterface):
             
             # Add region if specified
             if self._credentials.region_name:
-                auth_args["region_name"] = self._credentials.region_name
+                base_args["region_name"] = self._credentials.region_name
 
             if self._credentials.auth_method == AuthMethod.APPLICATION_CREDENTIAL:
                 if not self._credentials.application_credential_id or not self._credentials.application_credential_secret:
                     raise AuthenticationError("Application credential ID and secret are required")
                 
-                auth_args.update({
+                # For application credentials, we need to explicitly set the auth type
+                auth_args = {
+                    **base_args,
+                    "auth_type": "v3application_credential",
                     "application_credential_id": self._credentials.application_credential_id,
                     "application_credential_secret": self._credentials.application_credential_secret,
-                })
+                }
                 self.logger.debug("Using application credential authentication")
                 
             elif self._credentials.auth_method == AuthMethod.PASSWORD:
                 if not self._credentials.username or not self._credentials.password:
                     raise AuthenticationError("Username and password are required")
                 
-                auth_args.update({
+                auth_args = {
+                    **base_args,
+                    "auth_type": "password",
                     "username": self._credentials.username,
                     "password": self._credentials.password,
                     "user_domain_name": self._credentials.user_domain_name,
-                })
+                }
                 self.logger.debug("Using username/password authentication")
             else:
                 raise AuthenticationError(f"Unsupported authentication method: {self._credentials.auth_method}")
