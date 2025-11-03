@@ -385,12 +385,38 @@ class RetentionManager(RetentionManagerInterface):
         """
         candidates = {}
         
+        # Get all backups grouped by their schedule_tag
+        all_backups = self.state_manager.get_all_backups()
+        backups_by_tag = {}
+        
+        for backup in all_backups:
+            if backup.schedule_tag:
+                if backup.schedule_tag not in backups_by_tag:
+                    backups_by_tag[backup.schedule_tag] = []
+                backups_by_tag[backup.schedule_tag].append(backup)
+        
+        # Apply retention policies based on schedule tags
         for policy_name, policy in retention_policies.items():
             self.logger.debug(f"Evaluating retention policy '{policy_name}'")
+            policy_candidates = []
             
-            # For now, apply each policy to all backups
-            # In future versions, this could be enhanced to match policies by tags or resource types
-            policy_candidates = self.get_backups_to_delete(policy)
+            # Apply policy to backups from each schedule tag separately
+            for schedule_tag, tag_backups in backups_by_tag.items():
+                # Extract retention days from the schedule tag (e.g., RETAIN14)
+                tag_retention_days = self._extract_retention_from_tag(schedule_tag)
+                
+                if tag_retention_days is not None:
+                    # Use tag-specific retention
+                    tag_candidates = self._get_backups_to_delete_with_retention(
+                        tag_backups, tag_retention_days
+                    )
+                else:
+                    # Fall back to policy retention
+                    tag_candidates = self._get_backups_to_delete_from_list(
+                        tag_backups, policy.retention_days
+                    )
+                
+                policy_candidates.extend(tag_candidates)
             
             # Apply resource filter if specified
             if resource_filter:
@@ -1491,3 +1517,67 @@ class RetentionManager(RetentionManagerInterface):
             chains.append(chain_info)
         
         return chains
+    def _extract_retention_from_tag(self, schedule_tag: str) -> Optional[int]:
+        """Extract retention days from schedule tag.
+        
+        Args:
+            schedule_tag: Schedule tag like 'SNAPSHOT-DAILY-0300-RETAIN14'
+            
+        Returns:
+            Retention days if found in tag, None otherwise
+        """
+        import re
+        
+        # Look for RETAIN followed by digits
+        match = re.search(r'RETAIN(\d+)', schedule_tag)
+        if match:
+            return int(match.group(1))
+        return None
+    
+    def _get_backups_to_delete_with_retention(
+        self, 
+        backups: List[BackupInfo], 
+        retention_days: int
+    ) -> List[BackupInfo]:
+        """Get backups to delete based on specific retention days.
+        
+        Args:
+            backups: List of backups to evaluate
+            retention_days: Number of days to retain backups
+            
+        Returns:
+            List of backups that should be deleted
+        """
+        if not backups:
+            return []
+        
+        candidates = []
+        now = datetime.now(timezone.utc)
+        
+        for backup in backups:
+            if backup.created_at:
+                age_days = (now - backup.created_at).days
+                if age_days > retention_days:
+                    candidates.append(backup)
+                    self.logger.debug(
+                        f"Backup {backup.backup_id} is {age_days} days old "
+                        f"(retention: {retention_days} days) - marked for deletion"
+                    )
+        
+        return candidates
+    
+    def _get_backups_to_delete_from_list(
+        self, 
+        backups: List[BackupInfo], 
+        retention_days: int
+    ) -> List[BackupInfo]:
+        """Get backups to delete from a specific list (fallback method).
+        
+        Args:
+            backups: List of backups to evaluate
+            retention_days: Number of days to retain backups
+            
+        Returns:
+            List of backups that should be deleted
+        """
+        return self._get_backups_to_delete_with_retention(backups, retention_days)
