@@ -435,9 +435,12 @@ monitoring:
         from ..openstack_api.client import OpenStackClient
         
         async def test_connection():
-            client = OpenStackClient(config_obj.openstack)
+            client = OpenStackClient()
             try:
-                await client.authenticate()
+                auth_success = client.authenticate(config_obj.openstack)
+                if not auth_success:
+                    click.echo("✗ OpenStack authentication failed", err=True)
+                    return False
                 click.echo("✓ OpenStack authentication successful")
                 
                 # Test basic API access
@@ -448,7 +451,9 @@ monitoring:
                 click.echo(f"✗ OpenStack connection failed: {e}", err=True)
                 return False
             finally:
-                await client.close()
+                # Clean up connection if it exists
+                if hasattr(client, 'connection') and client.connection:
+                    client.connection.close()
             return True
         
         success = asyncio.run(test_connection())
