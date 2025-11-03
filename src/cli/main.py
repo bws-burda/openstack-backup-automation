@@ -444,8 +444,13 @@ monitoring:
                 click.echo("✓ OpenStack authentication successful")
                 
                 # Test basic API access
-                projects = await client.nova.list_servers(limit=1)
-                click.echo("✓ OpenStack API access verified")
+                if client.connection:
+                    # Simple test - list projects (should work with app credentials)
+                    projects = list(client.connection.identity.projects())
+                    click.echo("✓ OpenStack API access verified")
+                else:
+                    click.echo("✗ No OpenStack connection established", err=True)
+                    return False
                 
             except Exception as e:
                 click.echo(f"✗ OpenStack connection failed: {e}", err=True)
