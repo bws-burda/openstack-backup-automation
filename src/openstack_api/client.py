@@ -62,9 +62,20 @@ class OpenStackClient(OpenStackClientInterface):
         """Authenticate with OpenStack and store credentials for token renewal."""
         try:
             self._credentials = credentials
+            self.logger.debug(f"Authenticating with method: {credentials.auth_method}")
+            self.logger.debug(f"Auth URL: {credentials.auth_url}")
+            self.logger.debug(f"Project: {credentials.project_name}")
+            if credentials.auth_method == AuthMethod.APPLICATION_CREDENTIAL:
+                self.logger.debug(f"App Cred ID: {credentials.application_credential_id}")
+                self.logger.debug("Using application credential authentication")
             return self._perform_authentication()
         except Exception as e:
-            self.logger.error(f"Authentication failed: {e}")
+            self.logger.error(f"Authentication failed: Unexpected error during authentication: {e}")
+            import traceback
+            self.logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Also print to console for debugging
+            print(f"DEBUG: Authentication error: {e}")
+            print(f"DEBUG: Full traceback: {traceback.format_exc()}")
             self._authenticated = False
             return False
 
@@ -108,6 +119,7 @@ class OpenStackClient(OpenStackClientInterface):
                 raise AuthenticationError(f"Unsupported authentication method: {self._credentials.auth_method}")
 
             # Create connection
+            self.logger.debug(f"Creating connection with args: {auth_args}")
             self.connection = openstack.connect(**auth_args)
 
             # Test authentication by making a simple API call
