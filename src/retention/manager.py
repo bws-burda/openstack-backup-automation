@@ -900,7 +900,17 @@ class RetentionManager(RetentionManagerInterface):
         # Get all backups (we'll filter by age per-policy)
         max_retention_days = 365  # Maximum possible retention to get all candidates
         if global_retention_policies:
-            max_retention_days = max(p.retention_days for p in global_retention_policies.values())
+            # Handle case where values might be dicts or RetentionPolicy objects
+            policy_retention_days = []
+            for policy in global_retention_policies.values():
+                if hasattr(policy, 'retention_days'):
+                    policy_retention_days.append(policy.retention_days)
+                elif isinstance(policy, dict) and 'retention_days' in policy:
+                    policy_retention_days.append(policy['retention_days'])
+            
+            if policy_retention_days:
+                max_retention_days = max(policy_retention_days)
+        
         max_retention_days = max(max_retention_days, default_retention_policy.retention_days)
         
         all_old_backups = self.state_manager.get_backups_older_than(max_retention_days)
