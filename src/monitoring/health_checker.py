@@ -57,7 +57,7 @@ class HealthChecker:
             components.append(openstack_health)
         
         # Check local storage (for database/logs only)
-        if self.config.disk_space_check_enabled:
+        if self.config.local_storage_check_enabled:
             local_storage_health = await self._check_local_storage()
             components.append(local_storage_health)
         
@@ -283,7 +283,7 @@ class HealthChecker:
             return await self._check_database_health()
         elif component_name == "openstack_api" and self.config.openstack_check_enabled:
             return await self._check_openstack_health()
-        elif component_name == "local_storage" and self.config.disk_space_check_enabled:
+        elif component_name == "local_storage" and self.config.local_storage_check_enabled:
             return await self._check_local_storage()
         elif component_name == "openstack_quotas" and self.config.openstack_check_enabled:
             return await self._check_openstack_quotas()

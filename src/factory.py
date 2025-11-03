@@ -37,7 +37,10 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
     )
     
     retention_manager = RetentionManager(openstack_client, state_manager)
-    notification_service = NotificationService(config.notifications)
+    
+    # Create notification service (email is optional)
+    email_settings = getattr(config, 'notifications', None)
+    notification_service = NotificationService(email_settings)
 
     # Create monitoring components
     health_check_config = HealthCheckConfig(
@@ -46,8 +49,8 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         timeout_seconds=config.monitoring.timeout_seconds,
         database_check_enabled=config.monitoring.database_check_enabled,
         openstack_check_enabled=config.monitoring.openstack_check_enabled,
-        disk_space_check_enabled=config.monitoring.local_storage_check_enabled,
-        disk_space_threshold_percent=config.monitoring.local_storage_threshold_percent,
+        local_storage_check_enabled=config.monitoring.local_storage_check_enabled,
+        local_storage_threshold_percent=config.monitoring.local_storage_threshold_percent,
     )
     
     health_checker = HealthChecker(
@@ -94,8 +97,8 @@ def create_health_checker_from_config(config_path: str) -> HealthChecker:
         timeout_seconds=config.monitoring.timeout_seconds,
         database_check_enabled=config.monitoring.database_check_enabled,
         openstack_check_enabled=config.monitoring.openstack_check_enabled,
-        disk_space_check_enabled=config.monitoring.local_storage_check_enabled,
-        disk_space_threshold_percent=config.monitoring.local_storage_threshold_percent,
+        local_storage_check_enabled=config.monitoring.local_storage_check_enabled,
+        local_storage_threshold_percent=config.monitoring.local_storage_threshold_percent,
     )
 
     return HealthChecker(
@@ -112,8 +115,9 @@ def create_status_reporter_from_config(config_path: str) -> StatusReporter:
     config_manager = ConfigurationManager()
     config = config_manager.load_config(config_path)
 
-    # Create notification service and state manager
-    notification_service = NotificationService(config.notifications)
+    # Create notification service and state manager (email is optional)
+    email_settings = getattr(config, 'notifications', None)
+    notification_service = NotificationService(email_settings)
     state_manager = StateManager(config.database_path)
 
     return StatusReporter(

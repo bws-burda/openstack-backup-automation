@@ -6,7 +6,7 @@ import socket
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..backup.models import OperationResult
 from ..config.models import EmailSettings
@@ -16,14 +16,19 @@ from ..interfaces import NotificationServiceInterface
 class NotificationService(NotificationServiceInterface):
     """Handles email notifications for backup operations and errors."""
 
-    def __init__(self, email_settings: EmailSettings):
+    def __init__(self, email_settings: Optional[EmailSettings] = None):
         self.email_settings = email_settings
         self.logger = logging.getLogger(__name__)
+        self.email_enabled = email_settings is not None
 
     def send_error_notification(
         self, error: Exception, context: Dict[str, Any]
     ) -> bool:
         """Send error notification email with enhanced error categorization."""
+        if not self.email_enabled:
+            self.logger.info(f"Email notifications disabled - logging error: {error}")
+            return True  # Consider it successful since logging is the fallback
+            
         error_type = self._categorize_error(error)
         operation = context.get('operation', 'Unknown Operation')
         
@@ -135,6 +140,10 @@ OpenStack Backup Automation System
         failed_operations: List[OperationResult],
     ) -> bool:
         """Send backup operation summary report."""
+        if not self.email_enabled:
+            self.logger.info(f"Email notifications disabled - backup report: {len(successful_operations)} successful, {len(failed_operations)} failed")
+            return True
+            
         total_operations = len(successful_operations) + len(failed_operations)
         success_rate = (
             (len(successful_operations) / total_operations * 100)
@@ -185,6 +194,10 @@ OpenStack Backup Automation System
 
     def send_retention_report(self, deleted_count: int, errors: List[str]) -> bool:
         """Send retention cleanup report."""
+        if not self.email_enabled:
+            self.logger.info(f"Email notifications disabled - retention report: {deleted_count} backups deleted, {len(errors)} errors")
+            return True
+            
         subject = f"OpenStack Backup Retention Report - {deleted_count} Backups Cleaned"
 
         body = f"""

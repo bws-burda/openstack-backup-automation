@@ -93,7 +93,7 @@ class HealthCheckConfig:
     timeout_seconds: int = 30
     database_check_enabled: bool = True
     openstack_check_enabled: bool = True
-    local_storage_check_enabled: bool = True
+    local_storage_check_enabled: bool = False  # Usually handled by external monitoring
     local_storage_threshold_percent: int = 95  # Higher threshold since it's just metadata
     openstack_quota_check_enabled: bool = True
     

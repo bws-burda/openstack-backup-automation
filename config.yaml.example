@@ -172,3 +172,44 @@ database_path: "./backup.db"
 # Logging configuration
 log_level: "INFO"
 log_file: "./logs/backup.log"
+# Mo
+nitoring Configuration (Optional)
+# ===================================
+monitoring:
+  enabled: true
+  check_interval_seconds: 300  # Check every 5 minutes
+  timeout_seconds: 30
+  
+  # Core health checks (recommended to keep enabled)
+  database_check_enabled: true      # Check SQLite database health
+  openstack_check_enabled: true     # Check OpenStack API connectivity
+  openstack_quota_check_enabled: true  # Check OpenStack quotas
+  
+  # Local storage check (usually disabled - handled by external monitoring)
+  local_storage_check_enabled: false  # Disable if you have Prometheus/Nagios/etc
+  local_storage_threshold_percent: 95  # Only used if enabled
+
+# Logging Configuration
+# ====================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  console_enabled: true
+  file_logging: true
+  log_file: "logs/backup-automation.log"
+  max_file_size_mb: 100
+  backup_count: 5
+  syslog_enabled: false
+  format_type: "structured"  # structured (JSON) or simple
+
+# Notification Configuration
+# =========================
+notifications:
+  email:
+    enabled: false  # Set to true to enable email notifications
+    smtp_server: "smtp.example.com"
+    smtp_port: 587
+    smtp_username: "backup-notifications@example.com"
+    smtp_password: "your-smtp-password"
+    sender: "backup-notifications@example.com"
+    recipient: "admin@example.com"
+    use_tls: true
