@@ -277,9 +277,11 @@ class ExecutionCoordinator:
                 self.logger.info("DRY RUN: Would perform retention cleanup")
                 return 0
 
-            deleted_count = await self.retention_manager.cleanup_expired_backups(
+            cleanup_result = await self.retention_manager.cleanup_expired_backups(
                 self.config.retention_policies
             )
+            
+            deleted_count = cleanup_result.get("deleted_count", 0)
             
             if deleted_count > 0:
                 self.logger.info(f"Retention cleanup completed: {deleted_count} backups deleted")
