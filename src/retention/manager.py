@@ -1597,8 +1597,9 @@ class RetentionManager(RetentionManagerInterface):
         Returns:
             List of backups that should be deleted
         """
-        return self._get_backups_to_delete_with_retention(backups, retention_days)    d
-ef get_retention_days_for_backup_type(self, backup_type: BackupType, backup_config) -> int:
+        return self._get_backups_to_delete_with_retention(backups, retention_days)
+
+    def get_retention_days_for_backup_type(self, backup_type: BackupType, backup_config) -> int:
         """Get retention days based on backup type.
         
         Args:

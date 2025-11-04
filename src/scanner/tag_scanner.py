@@ -175,9 +175,19 @@ class TagScanner:
             return None
 
     def is_backup_due(self, resource: ScheduledResource) -> bool:
-        """Check if a backup is due for the given resource."""
+        """Check if a backup is due for the given resource.
+        
+        Implements defensive backup strategy:
+        - If no previous backup exists, create one immediately (defensive backup)
+        - Otherwise, follow the regular schedule
+        """
         now = datetime.now(timezone.utc)
         schedule_info = resource.schedule_info
+
+        # DEFENSIVE BACKUP STRATEGY: If no backup exists, create one immediately
+        if resource.last_backup is None:
+            self.logger.info(f"Defensive backup triggered for {resource.name} ({resource.id}) - no previous backup found")
+            return True
 
         # Parse the scheduled time
         try:
@@ -185,40 +195,41 @@ class TagScanner:
             minute = int(schedule_info.time[2:])
             scheduled_time = time(hour, minute)
         except (ValueError, IndexError):
-            return False
-
-        # Check if we're past the scheduled time today
-        current_time = now.time()
-        if current_time < scheduled_time:
+            self.logger.warning(f"Invalid time format in schedule for resource {resource.id}: {schedule_info.time}")
             return False
 
         # Check frequency-specific conditions
         if schedule_info.frequency == Frequency.DAILY:
             # Daily backups are due every day after the scheduled time
-            if resource.last_backup is None:
-                return True
-
+            current_time = now.time()
+            
             # Check if we already did a backup today
             last_backup_date = resource.last_backup.date()
             today = now.date()
-            return last_backup_date < today
+            
+            # If we haven't done a backup today and we're past the scheduled time
+            if last_backup_date < today and current_time >= scheduled_time:
+                return True
+            
+            return False
 
         elif schedule_info.frequency == Frequency.WEEKLY:
-            # Weekly backups on the same day of week
-            if resource.last_backup is None:
-                return True
-
+            # Weekly backups - check if at least 7 days have passed
             days_since_last = (now - resource.last_backup).days
-            return days_since_last >= 7
+            if days_since_last >= 7:
+                # Also check if we're past the scheduled time today
+                current_time = now.time()
+                return current_time >= scheduled_time
+            return False
 
         elif schedule_info.frequency == Frequency.MONTHLY:
-            # Monthly backups on the same day of month
-            if resource.last_backup is None:
-                return True
-
-            # Simple monthly check - at least 28 days since last backup
+            # Monthly backups - check if at least 28 days have passed
             days_since_last = (now - resource.last_backup).days
-            return days_since_last >= 28
+            if days_since_last >= 28:
+                # Also check if we're past the scheduled time today
+                current_time = now.time()
+                return current_time >= scheduled_time
+            return False
 
         else:
             # Weekday-specific backups (MONDAY, TUESDAY, etc.)
@@ -240,10 +251,12 @@ class TagScanner:
             if now.weekday() != target_weekday:
                 return False
 
-            # Check if we already did a backup this week
-            if resource.last_backup is None:
-                return True
+            # Check if we're past the scheduled time
+            current_time = now.time()
+            if current_time < scheduled_time:
+                return False
 
+            # Check if we already did a backup this week
             days_since_last = (now - resource.last_backup).days
             return days_since_last >= 7
 

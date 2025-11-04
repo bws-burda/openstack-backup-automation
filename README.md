@@ -155,9 +155,41 @@ For system-wide installation with systemd:
 sudo ./scripts/install.sh --systemd
 ```
 
+## Defensive Backup Strategy
+
+Das System implementiert eine **defensive Backup-Strategie** für sofortigen Schutz neuer Ressourcen:
+
+### Sofortige Sicherung bei Tag-Hinzufügung
+
+Wenn Sie einer Ressource einen Backup-Tag hinzufügen, wird **nicht** bis zum nächsten geplanten Zeitpunkt gewartet:
+
+```bash
+# Beispiel: Tag um 10:30 Uhr hinzugefügt
+openstack server set --tag "BACKUP-DAILY-0300" my-server
+
+# ✅ 10:45 Uhr: Sofortiges Full-Backup beim nächsten Scan (alle 15 Min)
+# ✅ 03:00 Uhr (nächster Tag): Reguläres Incremental-Backup
+# ✅ 03:00 Uhr (folgende Tage): Weitere tägliche Backups
+```
+
+### Zeitplan nach der ersten Sicherung
+
+Nach dem ersten defensiven Backup folgt das System dem normalen Zeitplan:
+
+- **Daily Backups**: Incremental-Backups alle 24 Stunden zur konfigurierten Zeit
+- **Full-Backup-Intervall**: Standardmäßig alle 7 Tage (konfigurierbar)
+- **Retention**: Automatische Bereinigung nach konfigurierten Tagen
+
+### Vorteile
+
+- **Sofortiger Schutz**: Maximal 15 Minuten Wartezeit nach Tag-Hinzufügung
+- **Kein Datenverlust-Risiko**: Ressourcen sind sofort geschützt
+- **Nahtlose Integration**: Normaler Zeitplan ab der zweiten Sicherung
+
 ## Features
 
 - ✅ Tag-based resource discovery
+- ✅ **Defensive backup strategy** (immediate protection)
 - ✅ Automated snapshots and backups
 - ✅ Full/Incremental backup strategies
 - ✅ Configurable retention policies

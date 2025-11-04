@@ -202,7 +202,7 @@ Das Projekt wurde für schlanken Code optimiert:
   - Test error handling and retry scenarios
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 10. Build scheduling and execution engine
+- [x] 10. Build scheduling and execution engine
   - Create main scheduler that coordinates all operations
   - Implement cron-compatible execution mode
   - Add daemon mode with internal scheduling
@@ -213,7 +213,7 @@ Das Projekt wurde für schlanken Code optimiert:
   - Implement execution flow with parallel operation support
   - _Requirements: 9.1, 9.2, 9.3_
 
-- [x] 10.2 Add cron and daemon execution modes
+- [ ] 10.2 Add cron and daemon execution modes
   - Create command-line interface for both execution modes
   - Implement daemon mode with internal scheduling
   - _Requirements: 10.1, 10.2, 10.3_

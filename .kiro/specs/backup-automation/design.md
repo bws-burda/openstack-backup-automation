@@ -161,6 +161,27 @@ class StateManager:
     def cleanup_old_records(self, retention_days: int)
 ```
 
+### Defensive Backup Strategy
+
+Das System implementiert eine **defensive Backup-Strategie**, die sicherstellt, dass neu getaggte Ressourcen sofort geschützt werden:
+
+**Sofortige Backup-Erstellung:**
+- Wenn eine Ressource einen Backup-Tag erhält, wird beim nächsten Scan-Zyklus (alle 15 Minuten) sofort ein Backup erstellt
+- Dies gewährleistet, dass die Ressource innerhalb von maximal 15 Minuten nach dem Tagging geschützt ist
+- Die zweite Sicherung erfolgt dann entsprechend dem konfigurierten Zeitplan (z.B. bei DAILY-Backups innerhalb von 24 Stunden)
+
+**Beispiel-Szenario:**
+1. **10:30 Uhr**: Administrator fügt Tag `BACKUP-DAILY-0300` zu einer Instanz hinzu
+2. **10:45 Uhr**: Nächster Scan-Zyklus erkennt die neue Ressource und erstellt sofort ein Full-Backup
+3. **03:00 Uhr (nächster Tag)**: Reguläres tägliches Backup wird erstellt (Incremental, da Full-Backup < 7 Tage alt)
+4. **03:00 Uhr (folgende Tage)**: Weitere tägliche Incremental-Backups bis zum nächsten Full-Backup-Intervall
+
+**Vorteile der defensiven Strategie:**
+- **Sofortiger Schutz**: Keine Wartezeit bis zum nächsten geplanten Backup-Zeitpunkt
+- **Minimales Risiko**: Ressourcen sind innerhalb von Minuten nach dem Tagging geschützt
+- **Nahtlose Integration**: Nach dem ersten Backup folgt das System dem normalen Zeitplan
+- **Benutzerfreundlich**: Administratoren müssen nicht auf den nächsten Backup-Zeitpunkt warten
+
 **Datenbank-Schema (SQLite):**
 ```sql
 CREATE TABLE backups (
