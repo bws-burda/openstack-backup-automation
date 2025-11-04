@@ -207,7 +207,8 @@ class RetentionManager(RetentionManagerInterface):
         retention_policies: Dict[str, RetentionPolicy],
         use_tag_policies: bool = True,
         use_batch_deletion: bool = True,
-        batch_size: int = 5
+        batch_size: int = 5,
+        backup_config = None
     ) -> Dict[str, any]:
         """Clean up expired backups with enhanced tag-based policies and batch deletion.
         
@@ -244,7 +245,7 @@ class RetentionManager(RetentionManagerInterface):
         if use_tag_policies:
             self.logger.info("Using tag-based retention policies for cleanup")
             backups_to_delete = self.get_backups_to_delete_with_tag_policies(
-                default_policy, retention_policies
+                default_policy, retention_policies, backup_config
             )
         else:
             self.logger.info("Using single retention policy for cleanup")
@@ -415,12 +416,14 @@ class RetentionManager(RetentionManagerInterface):
                     tag_candidates = []
                     for backup in tag_backups:
                         # Get retention based on backup type
-                        type_retention_days = self.get_retention_days_for_backup_type(
-                            backup.backup_type, 
-                            # We need access to backup_config here - for now use policy retention
-                            # TODO: Pass backup_config to this method
-                        )
-                        if self.calculate_backup_age(backup) > policy.retention_days:
+                        if backup_config:
+                            type_retention_days = self.get_retention_days_for_backup_type(
+                                backup.backup_type, backup_config
+                            )
+                        else:
+                            type_retention_days = policy.retention_days
+                        
+                        if self.calculate_backup_age(backup) > type_retention_days:
                             tag_candidates.append(backup)
                 
                 policy_candidates.extend(tag_candidates)
@@ -891,7 +894,8 @@ class RetentionManager(RetentionManagerInterface):
     def get_backups_to_delete_with_tag_policies(
         self, 
         default_retention_policy: RetentionPolicy,
-        global_retention_policies: Optional[Dict[str, RetentionPolicy]] = None
+        global_retention_policies: Optional[Dict[str, RetentionPolicy]] = None,
+        backup_config = None
     ) -> List[BackupInfo]:
         """Get backups to delete using tag-based retention policies.
         

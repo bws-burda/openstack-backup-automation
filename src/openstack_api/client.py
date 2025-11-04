@@ -556,6 +556,98 @@ class OpenStackClient(OpenStackClientInterface):
                 return False
             raise
 
+    async def list_instance_snapshots(self, instance_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List instance snapshots (images created from instances)."""
+        async def _list_snapshots():
+            await self._ensure_authenticated()
+            
+            snapshots = []
+            # Instance snapshots are stored as images with image_type='snapshot'
+            for image in self.connection.image.images():
+                image_dict = image.to_dict()
+                
+                # Filter for snapshots only
+                if image_dict.get('image_type') == 'snapshot':
+                    # If instance_id is specified, filter by instance_id in metadata
+                    if instance_id:
+                        instance_uuid = image_dict.get('instance_uuid')
+                        if instance_uuid != instance_id:
+                            continue
+                    
+                    snapshots.append(image_dict)
+            
+            self.logger.debug(f"Found {len(snapshots)} instance snapshots")
+            return snapshots
+
+        try:
+            return await self._retry_on_failure(_list_snapshots, "list_instance_snapshots")
+        except HttpException as e:
+            if e.status_code == 401:
+                raise TokenExpiredError("Token expired while listing instance snapshots")
+            raise APIError(f"HTTP error listing instance snapshots: {e}")
+        except Exception as e:
+            if not isinstance(e, (APIError, TokenExpiredError)):
+                raise APIError(f"Error listing instance snapshots: {e}")
+            raise
+
+    async def list_volume_snapshots(self, volume_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List volume snapshots."""
+        async def _list_snapshots():
+            await self._ensure_authenticated()
+            
+            snapshots = []
+            for snapshot in self.connection.block_storage.snapshots():
+                snapshot_dict = snapshot.to_dict()
+                
+                # If volume_id is specified, filter by volume_id
+                if volume_id and snapshot_dict.get('volume_id') != volume_id:
+                    continue
+                
+                snapshots.append(snapshot_dict)
+            
+            self.logger.debug(f"Found {len(snapshots)} volume snapshots")
+            return snapshots
+
+        try:
+            return await self._retry_on_failure(_list_snapshots, "list_volume_snapshots")
+        except HttpException as e:
+            if e.status_code == 401:
+                raise TokenExpiredError("Token expired while listing volume snapshots")
+            raise APIError(f"HTTP error listing volume snapshots: {e}")
+        except Exception as e:
+            if not isinstance(e, (APIError, TokenExpiredError)):
+                raise APIError(f"Error listing volume snapshots: {e}")
+            raise
+
+    async def list_volume_backups(self, volume_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List volume backups."""
+        async def _list_backups():
+            await self._ensure_authenticated()
+            
+            backups = []
+            for backup in self.connection.block_storage.backups():
+                backup_dict = backup.to_dict()
+                
+                # If volume_id is specified, filter by volume_id
+                if volume_id and backup_dict.get('volume_id') != volume_id:
+                    continue
+                
+                backups.append(backup_dict)
+            
+            self.logger.debug(f"Found {len(backups)} volume backups")
+            return backups
+
+        try:
+            return await self._retry_on_failure(_list_backups, "list_volume_backups")
+        except HttpException as e:
+            if e.status_code == 401:
+                raise TokenExpiredError("Token expired while listing volume backups")
+            raise APIError(f"HTTP error listing volume backups: {e}")
+        except Exception as e:
+            if not isinstance(e, (APIError, TokenExpiredError)):
+                raise APIError(f"Error listing volume backups: {e}")
+            raise
+
     async def get_backup_status(self, backup_id: str, resource_type: str) -> Optional[str]:
         """Get the status of a backup or snapshot."""
         async def _get_status():

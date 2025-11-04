@@ -278,7 +278,11 @@ class ExecutionCoordinator:
                 return 0
 
             cleanup_result = await self.retention_manager.cleanup_expired_backups(
-                self.config.retention_policies
+                self.config.retention_policies,
+                use_tag_policies=True,
+                use_batch_deletion=True,
+                batch_size=5,
+                backup_config=self.config.backup
             )
             
             deleted_count = cleanup_result.get("deleted_count", 0)
