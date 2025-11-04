@@ -909,7 +909,9 @@ class RetentionManager(RetentionManagerInterface):
         self.logger.info("Evaluating backups for deletion using tag-based retention policies")
         
         # Get all backups (we'll filter by age per-policy)
-        max_retention_days = 365  # Maximum possible retention to get all candidates
+        # Start with default policy retention
+        max_retention_days = default_retention_policy.retention_days
+        
         if global_retention_policies:
             # Handle case where values might be dicts or RetentionPolicy objects
             policy_retention_days = []
@@ -920,9 +922,18 @@ class RetentionManager(RetentionManagerInterface):
                     policy_retention_days.append(policy['retention_days'])
             
             if policy_retention_days:
-                max_retention_days = max(policy_retention_days)
+                max_retention_days = max(max_retention_days, max(policy_retention_days))
         
-        max_retention_days = max(max_retention_days, default_retention_policy.retention_days)
+        # Also consider backup_config retention settings
+        if backup_config:
+            max_retention_days = max(
+                max_retention_days,
+                backup_config.snapshot_retention_days,
+                backup_config.backup_retention_days
+            )
+        
+        # Use a reasonable minimum to catch recent backups
+        max_retention_days = max(max_retention_days, 2)  # At least check last 2 days
         
         all_old_backups = self.state_manager.get_backups_older_than(max_retention_days)
         
