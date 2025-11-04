@@ -81,8 +81,9 @@ class OpenStackCredentials:
 class EmailSettings:
     """Email notification settings."""
 
-    recipient: str
-    sender: str
+    enabled: bool = False
+    recipient: Optional[str] = None
+    sender: Optional[str] = None
     smtp_server: str = "localhost"
     smtp_port: int = 25
     use_tls: bool = False
@@ -95,11 +96,15 @@ class EmailSettings:
 
     def _validate(self):
         """Validate email configuration."""
+        # Only validate email fields if notifications are enabled
+        if not self.enabled:
+            return
+
         if not self.recipient:
-            raise ValueError("Email recipient is required")
+            raise ValueError("Email recipient is required when notifications are enabled")
 
         if not self.sender:
-            raise ValueError("Email sender is required")
+            raise ValueError("Email sender is required when notifications are enabled")
 
         # Basic email format validation
         email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
@@ -117,7 +122,7 @@ class EmailSettings:
 
         # Validate SMTP server
         if not self.smtp_server:
-            raise ValueError("SMTP server is required")
+            raise ValueError("SMTP server is required when notifications are enabled")
 
         # If TLS is enabled and port is default, suggest secure port
         if self.use_tls and self.smtp_port == 25:

@@ -39,16 +39,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
     retention_manager = RetentionManager(state_manager, openstack_client)
     
     # Create notification service (email is optional)
-    try:
-        email_settings = getattr(config, 'notifications', None)
-        # Validate that email_settings is actually usable
-        if email_settings and hasattr(email_settings, 'recipient') and email_settings.recipient:
-            notification_service = NotificationService(email_settings)
-        else:
-            notification_service = NotificationService(None)
-    except Exception as e:
-        # If there's any issue with email config, disable it
-        notification_service = NotificationService(None)
+    notification_service = NotificationService(config.notifications)
 
     # Create monitoring components
     health_check_config = HealthCheckConfig(
@@ -124,8 +115,7 @@ def create_status_reporter_from_config(config_path: str) -> StatusReporter:
     config = config_manager.load_config(config_path)
 
     # Create notification service and state manager (email is optional)
-    email_settings = getattr(config, 'notifications', None)
-    notification_service = NotificationService(email_settings)
+    notification_service = NotificationService(config.notifications)
     state_manager = StateManager(config.database_path)
 
     return StatusReporter(

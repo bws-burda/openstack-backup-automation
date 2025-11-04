@@ -19,7 +19,7 @@ class NotificationService(NotificationServiceInterface):
     def __init__(self, email_settings: Optional[EmailSettings] = None):
         self.email_settings = email_settings
         self.logger = logging.getLogger(__name__)
-        self.email_enabled = email_settings is not None
+        self.email_enabled = email_settings is not None and email_settings.enabled
 
     def send_error_notification(
         self, error: Exception, context: Dict[str, Any]

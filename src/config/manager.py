@@ -133,17 +133,39 @@ class ConfigurationManager:
 
             # Parse email settings
             email_config = config_data.get("notifications", {})
-            if not email_config:
-                raise ValueError("Missing required 'notifications' configuration section")
+            
+            # Support both old and new configuration formats
+            email_enabled = email_config.get("enabled", False)
+            if "email" in email_config:
+                # New format: notifications.email.enabled
+                email_sub_config = email_config["email"]
+                email_enabled = email_sub_config.get("enabled", False)
+                email_recipient = email_sub_config.get("recipient")
+                email_sender = email_sub_config.get("sender")
+                smtp_server = email_sub_config.get("smtp_server", "localhost")
+                smtp_port = int(email_sub_config.get("smtp_port", 25))
+                use_tls = bool(email_sub_config.get("use_tls", False))
+                smtp_username = email_sub_config.get("username")
+                smtp_password = email_sub_config.get("password")
+            else:
+                # Legacy format: notifications.email_recipient, etc.
+                email_recipient = email_config.get("email_recipient")
+                email_sender = email_config.get("email_sender")
+                smtp_server = email_config.get("smtp_server", "localhost")
+                smtp_port = int(email_config.get("smtp_port", 25))
+                use_tls = bool(email_config.get("use_tls", False))
+                smtp_username = email_config.get("smtp_username")
+                smtp_password = email_config.get("smtp_password")
 
             email_settings = EmailSettings(
-                recipient=email_config.get("email_recipient"),
-                sender=email_config.get("email_sender"),
-                smtp_server=email_config.get("smtp_server", "localhost"),
-                smtp_port=int(email_config.get("smtp_port", 25)),
-                use_tls=bool(email_config.get("use_tls", False)),
-                username=email_config.get("smtp_username"),
-                password=email_config.get("smtp_password"),
+                enabled=email_enabled,
+                recipient=email_recipient,
+                sender=email_sender,
+                smtp_server=smtp_server,
+                smtp_port=smtp_port,
+                use_tls=use_tls,
+                username=smtp_username,
+                password=smtp_password,
             )
 
             # Parse scheduling configuration
