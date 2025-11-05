@@ -3,8 +3,8 @@
 from .backup.engine import BackupEngine
 from .config.manager import ConfigurationManager
 from .monitoring.health_checker import HealthChecker
-from .monitoring.status_reporter import StatusReporter
 from .monitoring.models import HealthCheckConfig
+from .monitoring.status_reporter import StatusReporter
 from .notification.service import NotificationService
 from .openstack_api.client import OpenStackClient
 from .retention.manager import RetentionManager
@@ -27,7 +27,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
     # Create components
     state_manager = StateManager(config.database_path)
     tag_scanner = TagScanner(openstack_client)
-    
+
     backup_engine = BackupEngine(
         openstack_client=openstack_client,
         state_manager=state_manager,
@@ -35,9 +35,9 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         operation_timeout_minutes=config.backup.operation_timeout_minutes,
         full_backup_interval_days=config.backup.full_backup_interval_days,
     )
-    
+
     retention_manager = RetentionManager(state_manager, openstack_client)
-    
+
     # Create notification service (email is optional)
     notification_service = NotificationService(config.notifications)
 
@@ -51,15 +51,15 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         local_storage_check_enabled=config.monitoring.local_storage_check_enabled,
         local_storage_threshold_percent=config.monitoring.local_storage_threshold_percent,
     )
-    
-    health_checker = HealthChecker(
+
+    _ = HealthChecker(
         config=health_check_config,
         openstack_client=openstack_client,
         state_manager=state_manager,
         database_path=config.database_path,
     )
-    
-    status_reporter = StatusReporter(
+
+    _ = StatusReporter(
         notification_service=notification_service,
         state_manager=state_manager,
     )

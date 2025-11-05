@@ -13,26 +13,30 @@ from openstack.exceptions import HttpException, SDKException
 from ..config.models import AuthMethod, OpenStackCredentials
 from ..interfaces import OpenStackClientInterface
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AuthenticationError(Exception):
     """Raised when authentication fails."""
+
     pass
 
 
 class TokenExpiredError(Exception):
     """Raised when token has expired."""
+
     pass
 
 
 class APIError(Exception):
     """Raised when API operations fail."""
+
     pass
 
 
 class RetryableError(Exception):
     """Raised when an operation can be retried."""
+
     pass
 
 
@@ -46,14 +50,14 @@ class OpenStackClient(OpenStackClientInterface):
         self._token_expires_at: Optional[float] = None
         self._auth_lock = asyncio.Lock()
         self.logger = logging.getLogger(__name__)
-        
+
         # Token refresh buffer - refresh token 5 minutes before expiry
         self._token_refresh_buffer = 300
-        
+
         # Retry configuration
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        
+
         # Connection health tracking
         self._last_successful_call: Optional[float] = None
         self._consecutive_failures = 0
@@ -66,12 +70,17 @@ class OpenStackClient(OpenStackClientInterface):
             self.logger.debug(f"Auth URL: {credentials.auth_url}")
             self.logger.debug(f"Project: {credentials.project_name}")
             if credentials.auth_method == AuthMethod.APPLICATION_CREDENTIAL:
-                self.logger.debug(f"App Cred ID: {credentials.application_credential_id}")
+                self.logger.debug(
+                    f"App Cred ID: {credentials.application_credential_id}"
+                )
                 self.logger.debug("Using application credential authentication")
             return self._perform_authentication()
         except Exception as e:
-            self.logger.error(f"Authentication failed: Unexpected error during authentication: {e}")
+            self.logger.error(
+                f"Authentication failed: Unexpected error during authentication: {e}"
+            )
             import traceback
+
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
             # Also print to console for debugging
             print(f"DEBUG: Authentication error: {e}")
@@ -86,9 +95,14 @@ class OpenStackClient(OpenStackClientInterface):
 
         try:
             if self._credentials.auth_method == AuthMethod.APPLICATION_CREDENTIAL:
-                if not self._credentials.application_credential_id or not self._credentials.application_credential_secret:
-                    raise AuthenticationError("Application credential ID and secret are required")
-                
+                if (
+                    not self._credentials.application_credential_id
+                    or not self._credentials.application_credential_secret
+                ):
+                    raise AuthenticationError(
+                        "Application credential ID and secret are required"
+                    )
+
                 # For application credentials, don't specify project scope - it's embedded in the credential
                 auth_args = {
                     "auth_url": self._credentials.auth_url,
@@ -96,17 +110,17 @@ class OpenStackClient(OpenStackClientInterface):
                     "application_credential_id": self._credentials.application_credential_id,
                     "application_credential_secret": self._credentials.application_credential_secret,
                 }
-                
+
                 # Add region if specified
                 if self._credentials.region_name:
                     auth_args["region_name"] = self._credentials.region_name
-                    
+
                 self.logger.debug("Using application credential authentication")
-                
+
             elif self._credentials.auth_method == AuthMethod.PASSWORD:
                 if not self._credentials.username or not self._credentials.password:
                     raise AuthenticationError("Username and password are required")
-                
+
                 # For password auth, we need project scope
                 auth_args = {
                     "auth_url": self._credentials.auth_url,
@@ -117,14 +131,16 @@ class OpenStackClient(OpenStackClientInterface):
                     "project_name": self._credentials.project_name,
                     "project_domain_name": self._credentials.project_domain_name,
                 }
-                
+
                 # Add region if specified
                 if self._credentials.region_name:
                     auth_args["region_name"] = self._credentials.region_name
-                    
+
                 self.logger.debug("Using username/password authentication")
             else:
-                raise AuthenticationError(f"Unsupported authentication method: {self._credentials.auth_method}")
+                raise AuthenticationError(
+                    f"Unsupported authentication method: {self._credentials.auth_method}"
+                )
 
             # Create connection
             self.logger.debug(f"Creating connection with args: {auth_args}")
@@ -132,17 +148,19 @@ class OpenStackClient(OpenStackClientInterface):
 
             # Test authentication by making a simple API call
             self.connection.authorize()
-            
+
             # Store token expiration time if available
-            auth_ref = getattr(self.connection.session.auth, 'auth_ref', None)
-            if auth_ref and hasattr(auth_ref, 'expires'):
+            auth_ref = getattr(self.connection.session.auth, "auth_ref", None)
+            if auth_ref and hasattr(auth_ref, "expires"):
                 # Convert to timestamp
                 self._token_expires_at = auth_ref.expires.timestamp()
                 self.logger.debug(f"Token expires at: {auth_ref.expires}")
             else:
                 # Default to 1 hour if we can't determine expiration
                 self._token_expires_at = time.time() + 3600
-                self.logger.debug("Could not determine token expiration, using 1 hour default")
+                self.logger.debug(
+                    "Could not determine token expiration, using 1 hour default"
+                )
 
             self._authenticated = True
             self.logger.info("Successfully authenticated with OpenStack")
@@ -170,7 +188,9 @@ class OpenStackClient(OpenStackClientInterface):
                 return
 
             # Check if token is about to expire
-            if self._token_expires_at and time.time() >= (self._token_expires_at - self._token_refresh_buffer):
+            if self._token_expires_at and time.time() >= (
+                self._token_expires_at - self._token_refresh_buffer
+            ):
                 self.logger.info("Token is about to expire, refreshing authentication")
                 try:
                     self._perform_authentication()
@@ -192,64 +212,74 @@ class OpenStackClient(OpenStackClientInterface):
             # Retry on server errors, rate limits, and temporary network issues
             retryable_status_codes = {500, 502, 503, 504, 429}
             return error.status_code in retryable_status_codes
-        
+
         if isinstance(error, (ConnectionError, TimeoutError)):
             return True
-            
+
         # Token expiration should trigger re-authentication, not retry
         if isinstance(error, TokenExpiredError):
             return False
-            
+
         return False
 
     async def _exponential_backoff(self, attempt: int) -> None:
         """Implement exponential backoff with jitter."""
         if attempt == 0:
             return
-            
+
         # Exponential backoff: base_delay * (2 ^ attempt) + random jitter
         delay = self.retry_delay * (2 ** (attempt - 1))
         jitter = random.uniform(0, delay * 0.1)  # 10% jitter
         total_delay = min(delay + jitter, 60)  # Cap at 60 seconds
-        
+
         self.logger.debug(f"Retrying in {total_delay:.2f} seconds (attempt {attempt})")
         await asyncio.sleep(total_delay)
 
-    async def _retry_on_failure(self, operation: Callable[[], T], operation_name: str) -> T:
+    async def _retry_on_failure(
+        self, operation: Callable[[], T], operation_name: str
+    ) -> T:
         """Retry an operation with exponential backoff."""
         last_exception = None
-        
+
         for attempt in range(self.max_retries + 1):
             try:
                 if attempt > 0:
                     await self._exponential_backoff(attempt)
-                
+
                 result = await operation()
-                
+
                 # Reset failure counter on success
                 self._consecutive_failures = 0
                 self._last_successful_call = time.time()
-                
+
                 return result
-                
+
             except TokenExpiredError:
                 # Don't retry token expiration - let it bubble up for re-authentication
                 raise
             except Exception as e:
                 last_exception = e
                 self._consecutive_failures += 1
-                
+
                 if not self._is_retryable_error(e):
-                    self.logger.error(f"{operation_name} failed with non-retryable error: {e}")
+                    self.logger.error(
+                        f"{operation_name} failed with non-retryable error: {e}"
+                    )
                     break
-                
+
                 if attempt < self.max_retries:
-                    self.logger.warning(f"{operation_name} failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}")
+                    self.logger.warning(
+                        f"{operation_name} failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    )
                 else:
-                    self.logger.error(f"{operation_name} failed after {self.max_retries + 1} attempts: {e}")
-        
+                    self.logger.error(
+                        f"{operation_name} failed after {self.max_retries + 1} attempts: {e}"
+                    )
+
         # All retries exhausted
-        raise APIError(f"{operation_name} failed after {self.max_retries + 1} attempts: {last_exception}")
+        raise APIError(
+            f"{operation_name} failed after {self.max_retries + 1} attempts: {last_exception}"
+        )
 
     def get_connection_health(self) -> Dict[str, Any]:
         """Get connection health information."""
@@ -258,20 +288,20 @@ class OpenStackClient(OpenStackClientInterface):
             "token_expires_at": self._token_expires_at,
             "last_successful_call": self._last_successful_call,
             "consecutive_failures": self._consecutive_failures,
-            "connection_active": self.connection is not None
+            "connection_active": self.connection is not None,
         }
 
     async def health_check(self) -> bool:
         """Perform a health check by making a simple API call."""
         try:
             await self._ensure_authenticated()
-            
+
             # Make a simple API call to test connectivity
             list(self.connection.identity.projects(limit=1))
-            
+
             self.logger.debug("Health check passed")
             return True
-            
+
         except Exception as e:
             self.logger.warning(f"Health check failed: {e}")
             return False
@@ -288,9 +318,10 @@ class OpenStackClient(OpenStackClientInterface):
         self, tag_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get instances with optional tag filtering."""
+
         async def _get_instances():
             await self._ensure_authenticated()
-            
+
             instances = []
             for server in self.connection.compute.servers():
                 server_dict = server.to_dict()
@@ -306,11 +337,15 @@ class OpenStackClient(OpenStackClientInterface):
 
                 instances.append(server_dict)
 
-            self.logger.debug(f"Found {len(instances)} instances with tag filter: {tag_filter}")
+            self.logger.debug(
+                f"Found {len(instances)} instances with tag filter: {tag_filter}"
+            )
             return instances
 
         try:
-            return await self._retry_on_failure(_get_instances, "get_instances_with_tags")
+            return await self._retry_on_failure(
+                _get_instances, "get_instances_with_tags"
+            )
         except HttpException as e:
             if e.status_code == 401:
                 raise TokenExpiredError("Token expired while fetching instances")
@@ -322,54 +357,69 @@ class OpenStackClient(OpenStackClientInterface):
 
     async def get_instance_volumes(self, instance_id: str) -> List[Dict[str, Any]]:
         """Get all volumes attached to a specific instance."""
+
         async def _get_instance_volumes():
             await self._ensure_authenticated()
-            
+
             try:
                 # Get the instance details
                 server = self.connection.compute.get_server(instance_id)
                 if not server:
                     self.logger.warning(f"Instance {instance_id} not found")
                     return []
-                
+
                 volumes = []
                 volume_ids = []
-                
+
                 # Try different ways to get attached volume IDs
                 # Method 1: Check if server has volume_attachments attribute
-                if hasattr(server, 'volume_attachments') and server.volume_attachments:
+                if hasattr(server, "volume_attachments") and server.volume_attachments:
                     for attachment in server.volume_attachments:
                         # Handle different attachment formats
                         if isinstance(attachment, dict):
-                            vol_id = attachment.get('volumeId') or attachment.get('volume_id') or attachment.get('id')
+                            vol_id = (
+                                attachment.get("volumeId")
+                                or attachment.get("volume_id")
+                                or attachment.get("id")
+                            )
                         else:
                             # Handle attachment objects
-                            vol_id = getattr(attachment, 'volume_id', None) or getattr(attachment, 'volumeId', None) or getattr(attachment, 'id', None)
-                        
+                            vol_id = (
+                                getattr(attachment, "volume_id", None)
+                                or getattr(attachment, "volumeId", None)
+                                or getattr(attachment, "id", None)
+                            )
+
                         if vol_id and isinstance(vol_id, str):
                             volume_ids.append(vol_id)
-                
+
                 # Method 2: Check if server has attached_volumes attribute
-                elif hasattr(server, 'attached_volumes') and server.attached_volumes:
+                elif hasattr(server, "attached_volumes") and server.attached_volumes:
                     for vol_ref in server.attached_volumes:
                         if isinstance(vol_ref, str):
                             volume_ids.append(vol_ref)
                         elif isinstance(vol_ref, dict):
-                            vol_id = vol_ref.get('id') or vol_ref.get('volume_id')
+                            vol_id = vol_ref.get("id") or vol_ref.get("volume_id")
                             if vol_id:
                                 volume_ids.append(vol_id)
-                
+
                 # Method 3: Use OpenStack SDK to get volume attachments
                 if not volume_ids:
                     try:
-                        attachments = list(self.connection.compute.volume_attachments(server=instance_id))
+                        attachments = list(
+                            self.connection.compute.volume_attachments(
+                                server=instance_id
+                            )
+                        )
                         for attachment in attachments:
-                            vol_id = getattr(attachment, 'volume_id', None)
+                            vol_id = getattr(attachment, "volume_id", None)
                             if vol_id:
                                 volume_ids.append(vol_id)
                     except Exception as e:
-                        self.logger.debug(f"Could not get volume attachments via SDK: {e}")
-                
+                        self.logger.debug(
+                            f"Could not get volume attachments via SDK: {e}"
+                        )
+
                 # Get full volume details for each attached volume
                 for volume_id in volume_ids:
                     try:
@@ -381,18 +431,26 @@ class OpenStackClient(OpenStackClientInterface):
                             volume_dict["tags"] = tags
                             volumes.append(volume_dict)
                     except Exception as e:
-                        self.logger.warning(f"Could not get details for volume {volume_id}: {e}")
+                        self.logger.warning(
+                            f"Could not get details for volume {volume_id}: {e}"
+                        )
                         continue
-                
-                self.logger.debug(f"Found {len(volumes)} volumes attached to instance {instance_id}")
+
+                self.logger.debug(
+                    f"Found {len(volumes)} volumes attached to instance {instance_id}"
+                )
                 return volumes
-                
+
             except Exception as e:
-                self.logger.error(f"Error getting volumes for instance {instance_id}: {e}")
+                self.logger.error(
+                    f"Error getting volumes for instance {instance_id}: {e}"
+                )
                 return []
 
         try:
-            return await self._retry_on_failure(_get_instance_volumes, "get_instance_volumes")
+            return await self._retry_on_failure(
+                _get_instance_volumes, "get_instance_volumes"
+            )
         except Exception as e:
             self.logger.error(f"Failed to get volumes for instance {instance_id}: {e}")
             return []
@@ -401,9 +459,10 @@ class OpenStackClient(OpenStackClientInterface):
         self, tag_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get volumes with optional tag filtering."""
+
         async def _get_volumes():
             await self._ensure_authenticated()
-            
+
             volumes = []
             for volume in self.connection.block_storage.volumes():
                 volume_dict = volume.to_dict()
@@ -424,7 +483,9 @@ class OpenStackClient(OpenStackClientInterface):
 
                 volumes.append(volume_dict)
 
-            self.logger.debug(f"Found {len(volumes)} volumes with tag filter: {tag_filter}")
+            self.logger.debug(
+                f"Found {len(volumes)} volumes with tag filter: {tag_filter}"
+            )
             return volumes
 
         try:
@@ -440,9 +501,10 @@ class OpenStackClient(OpenStackClientInterface):
 
     async def create_instance_snapshot(self, instance_id: str, name: str) -> str:
         """Create instance snapshot via Nova API."""
+
         async def _create_snapshot():
             await self._ensure_authenticated()
-            
+
             server = self.connection.compute.get_server(instance_id)
             if not server:
                 raise ValueError(f"Instance not found: {instance_id}")
@@ -454,14 +516,20 @@ class OpenStackClient(OpenStackClientInterface):
             return image.id
 
         try:
-            return await self._retry_on_failure(_create_snapshot, "create_instance_snapshot")
+            return await self._retry_on_failure(
+                _create_snapshot, "create_instance_snapshot"
+            )
         except HttpException as e:
             if e.status_code == 401:
-                raise TokenExpiredError("Token expired while creating instance snapshot")
+                raise TokenExpiredError(
+                    "Token expired while creating instance snapshot"
+                )
             elif e.status_code == 404:
                 raise ValueError(f"Instance not found: {instance_id}")
             elif e.status_code == 409:
-                raise APIError(f"Instance {instance_id} is in an invalid state for snapshot creation")
+                raise APIError(
+                    f"Instance {instance_id} is in an invalid state for snapshot creation"
+                )
             else:
                 raise APIError(f"HTTP error creating instance snapshot: {e}")
         except ValueError:
@@ -474,9 +542,10 @@ class OpenStackClient(OpenStackClientInterface):
 
     async def create_volume_snapshot(self, volume_id: str, name: str) -> str:
         """Create volume snapshot via Cinder API."""
+
         async def _create_snapshot():
             await self._ensure_authenticated()
-            
+
             volume = self.connection.block_storage.get_volume(volume_id)
             if not volume:
                 raise ValueError(f"Volume not found: {volume_id}")
@@ -492,14 +561,18 @@ class OpenStackClient(OpenStackClientInterface):
             return snapshot.id
 
         try:
-            return await self._retry_on_failure(_create_snapshot, "create_volume_snapshot")
+            return await self._retry_on_failure(
+                _create_snapshot, "create_volume_snapshot"
+            )
         except HttpException as e:
             if e.status_code == 401:
                 raise TokenExpiredError("Token expired while creating volume snapshot")
             elif e.status_code == 404:
                 raise ValueError(f"Volume not found: {volume_id}")
             elif e.status_code == 409:
-                raise APIError(f"Volume {volume_id} is in an invalid state for snapshot creation")
+                raise APIError(
+                    f"Volume {volume_id} is in an invalid state for snapshot creation"
+                )
             else:
                 raise APIError(f"HTTP error creating volume snapshot: {e}")
         except ValueError:
@@ -518,15 +591,18 @@ class OpenStackClient(OpenStackClientInterface):
         parent_id: Optional[str] = None,
     ) -> str:
         """Create volume backup via Cinder API."""
+
         async def _create_backup():
             await self._ensure_authenticated()
-            
+
             volume = self.connection.block_storage.get_volume(volume_id)
             if not volume:
                 raise ValueError(f"Volume not found: {volume_id}")
 
             backup_type = "incremental" if incremental else "full"
-            self.logger.info(f"Creating {backup_type} backup '{name}' for volume {volume_id}")
+            self.logger.info(
+                f"Creating {backup_type} backup '{name}' for volume {volume_id}"
+            )
 
             # Create backup
             backup_args = {
@@ -555,7 +631,9 @@ class OpenStackClient(OpenStackClientInterface):
                 else:
                     raise ValueError(f"Volume not found: {volume_id}")
             elif e.status_code == 409:
-                raise APIError(f"Volume {volume_id} is in an invalid state for backup creation")
+                raise APIError(
+                    f"Volume {volume_id} is in an invalid state for backup creation"
+                )
             else:
                 raise APIError(f"HTTP error creating volume backup: {e}")
         except ValueError:
@@ -568,11 +646,12 @@ class OpenStackClient(OpenStackClientInterface):
 
     async def delete_snapshot(self, snapshot_id: str, resource_type: str) -> bool:
         """Delete a snapshot."""
+
         async def _delete_snapshot():
             await self._ensure_authenticated()
-            
+
             self.logger.info(f"Deleting {resource_type} snapshot {snapshot_id}")
-            
+
             if resource_type == "instance":
                 # Delete image (instance snapshot)
                 self.connection.image.delete_image(snapshot_id)
@@ -582,7 +661,9 @@ class OpenStackClient(OpenStackClientInterface):
             else:
                 raise ValueError(f"Unknown resource type: {resource_type}")
 
-            self.logger.info(f"Successfully deleted {resource_type} snapshot {snapshot_id}")
+            self.logger.info(
+                f"Successfully deleted {resource_type} snapshot {snapshot_id}"
+            )
             return True
 
         try:
@@ -591,7 +672,9 @@ class OpenStackClient(OpenStackClientInterface):
             if e.status_code == 401:
                 raise TokenExpiredError("Token expired while deleting snapshot")
             elif e.status_code == 404:
-                self.logger.warning(f"Snapshot {snapshot_id} not found, may already be deleted")
+                self.logger.warning(
+                    f"Snapshot {snapshot_id} not found, may already be deleted"
+                )
                 return True  # Consider it successful if already deleted
             else:
                 self.logger.error(f"HTTP error deleting snapshot: {e}")
@@ -608,9 +691,10 @@ class OpenStackClient(OpenStackClientInterface):
 
     async def delete_backup(self, backup_id: str) -> bool:
         """Delete a backup."""
+
         async def _delete_backup():
             await self._ensure_authenticated()
-            
+
             self.logger.info(f"Deleting backup {backup_id}")
             self.connection.block_storage.delete_backup(backup_id)
             self.logger.info(f"Successfully deleted backup {backup_id}")
@@ -622,7 +706,9 @@ class OpenStackClient(OpenStackClientInterface):
             if e.status_code == 401:
                 raise TokenExpiredError("Token expired while deleting backup")
             elif e.status_code == 404:
-                self.logger.warning(f"Backup {backup_id} not found, may already be deleted")
+                self.logger.warning(
+                    f"Backup {backup_id} not found, may already be deleted"
+                )
                 return True  # Consider it successful if already deleted
             else:
                 self.logger.error(f"HTTP error deleting backup: {e}")
@@ -633,60 +719,72 @@ class OpenStackClient(OpenStackClientInterface):
                 return False
             raise
 
-    async def list_instance_snapshots(self, instance_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_instance_snapshots(
+        self, instance_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """List instance snapshots (images created from instances)."""
+
         async def _list_snapshots():
             await self._ensure_authenticated()
-            
+
             snapshots = []
             # Instance snapshots are stored as images with image_type='snapshot'
             for image in self.connection.image.images():
                 image_dict = image.to_dict()
-                
+
                 # Filter for snapshots only
-                if image_dict.get('image_type') == 'snapshot':
+                if image_dict.get("image_type") == "snapshot":
                     # If instance_id is specified, filter by instance_id in metadata
                     if instance_id:
-                        instance_uuid = image_dict.get('instance_uuid')
+                        instance_uuid = image_dict.get("instance_uuid")
                         if instance_uuid != instance_id:
                             continue
-                    
+
                     snapshots.append(image_dict)
-            
+
             self.logger.debug(f"Found {len(snapshots)} instance snapshots")
             return snapshots
 
         try:
-            return await self._retry_on_failure(_list_snapshots, "list_instance_snapshots")
+            return await self._retry_on_failure(
+                _list_snapshots, "list_instance_snapshots"
+            )
         except HttpException as e:
             if e.status_code == 401:
-                raise TokenExpiredError("Token expired while listing instance snapshots")
+                raise TokenExpiredError(
+                    "Token expired while listing instance snapshots"
+                )
             raise APIError(f"HTTP error listing instance snapshots: {e}")
         except Exception as e:
             if not isinstance(e, (APIError, TokenExpiredError)):
                 raise APIError(f"Error listing instance snapshots: {e}")
             raise
 
-    async def list_volume_snapshots(self, volume_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_volume_snapshots(
+        self, volume_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """List volume snapshots."""
+
         async def _list_snapshots():
             await self._ensure_authenticated()
-            
+
             snapshots = []
             for snapshot in self.connection.block_storage.snapshots():
                 snapshot_dict = snapshot.to_dict()
-                
+
                 # If volume_id is specified, filter by volume_id
-                if volume_id and snapshot_dict.get('volume_id') != volume_id:
+                if volume_id and snapshot_dict.get("volume_id") != volume_id:
                     continue
-                
+
                 snapshots.append(snapshot_dict)
-            
+
             self.logger.debug(f"Found {len(snapshots)} volume snapshots")
             return snapshots
 
         try:
-            return await self._retry_on_failure(_list_snapshots, "list_volume_snapshots")
+            return await self._retry_on_failure(
+                _list_snapshots, "list_volume_snapshots"
+            )
         except HttpException as e:
             if e.status_code == 401:
                 raise TokenExpiredError("Token expired while listing volume snapshots")
@@ -696,21 +794,24 @@ class OpenStackClient(OpenStackClientInterface):
                 raise APIError(f"Error listing volume snapshots: {e}")
             raise
 
-    async def list_volume_backups(self, volume_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_volume_backups(
+        self, volume_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """List volume backups."""
+
         async def _list_backups():
             await self._ensure_authenticated()
-            
+
             backups = []
             for backup in self.connection.block_storage.backups():
                 backup_dict = backup.to_dict()
-                
+
                 # If volume_id is specified, filter by volume_id
-                if volume_id and backup_dict.get('volume_id') != volume_id:
+                if volume_id and backup_dict.get("volume_id") != volume_id:
                     continue
-                
+
                 backups.append(backup_dict)
-            
+
             self.logger.debug(f"Found {len(backups)} volume backups")
             return backups
 
@@ -725,11 +826,14 @@ class OpenStackClient(OpenStackClientInterface):
                 raise APIError(f"Error listing volume backups: {e}")
             raise
 
-    async def get_backup_status(self, backup_id: str, resource_type: str) -> Optional[str]:
+    async def get_backup_status(
+        self, backup_id: str, resource_type: str
+    ) -> Optional[str]:
         """Get the status of a backup or snapshot."""
+
         async def _get_status():
             await self._ensure_authenticated()
-            
+
             if resource_type == "instance":
                 # Get image status
                 image = self.connection.image.get_image(backup_id)
@@ -743,7 +847,7 @@ class OpenStackClient(OpenStackClientInterface):
                     status = snapshot.status if snapshot else None
                     self.logger.debug(f"Volume snapshot {backup_id} status: {status}")
                     return status
-                except:
+                except Exception:
                     backup = self.connection.block_storage.get_backup(backup_id)
                     status = backup.status if backup else None
                     self.logger.debug(f"Volume backup {backup_id} status: {status}")

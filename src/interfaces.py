@@ -5,8 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .backup.models import BackupInfo, BackupOperation, OperationResult
-from .config.models import (Config, EmailSettings, OpenStackCredentials,
-                            RetentionPolicy)
+from .config.models import Config, EmailSettings, OpenStackCredentials, RetentionPolicy
 from .scanner.models import ScheduledResource, ScheduleInfo
 
 
@@ -68,17 +67,23 @@ class TagScannerInterface(ABC):
         pass
 
     @abstractmethod
-    def get_resources_by_schedule_type(self, resources: List[ScheduledResource], operation_type: Any) -> List[ScheduledResource]:
+    def get_resources_by_schedule_type(
+        self, resources: List[ScheduledResource], operation_type: Any
+    ) -> List[ScheduledResource]:
         """Filter resources by operation type (SNAPSHOT or BACKUP)."""
         pass
 
     @abstractmethod
-    def get_resources_by_frequency(self, resources: List[ScheduledResource], frequency: Any) -> List[ScheduledResource]:
+    def get_resources_by_frequency(
+        self, resources: List[ScheduledResource], frequency: Any
+    ) -> List[ScheduledResource]:
         """Filter resources by schedule frequency."""
         pass
 
     @abstractmethod
-    def get_due_resources(self, resources: List[ScheduledResource]) -> List[ScheduledResource]:
+    def get_due_resources(
+        self, resources: List[ScheduledResource]
+    ) -> List[ScheduledResource]:
         """Get all resources that are due for backup."""
         pass
 
@@ -283,7 +288,9 @@ class OpenStackClientInterface(ABC):
         pass
 
     @abstractmethod
-    async def get_backup_status(self, backup_id: str, resource_type: str) -> Optional[str]:
+    async def get_backup_status(
+        self, backup_id: str, resource_type: str
+    ) -> Optional[str]:
         """Get the status of a backup or snapshot."""
         pass
 
@@ -321,6 +328,8 @@ class StatusReporterInterface(ABC):
         pass
 
     @abstractmethod
-    def send_status_report(self, system_status, include_backup_summary: bool = True) -> bool:
+    def send_status_report(
+        self, system_status, include_backup_summary: bool = True
+    ) -> bool:
         """Send comprehensive status report."""
         pass

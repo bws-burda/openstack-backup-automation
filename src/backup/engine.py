@@ -6,13 +6,17 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, List, Optional
 
-from .models import (BackupInfo, BackupOperation, BackupType, OperationResult,
-                     OperationStatus)
+from .models import (
+    BackupInfo,
+    BackupOperation,
+    BackupType,
+    OperationResult,
+    OperationStatus,
+)
 from .strategy import BackupStrategy
 
 if TYPE_CHECKING:
-    from ..interfaces import (BackupEngineInterface, OpenStackClientInterface,
-                              StateManagerInterface)
+    pass
 
 
 class BackupEngine:
@@ -21,7 +25,7 @@ class BackupEngine:
     def __init__(
         self,
         openstack_client: Any,  # OpenStackClientInterface
-        state_manager: Any,     # StateManagerInterface
+        state_manager: Any,  # StateManagerInterface
         max_concurrent_operations: int = 5,
         operation_timeout_minutes: int = 60,
         full_backup_interval_days: int = 7,
@@ -33,11 +37,11 @@ class BackupEngine:
         self.executor = ThreadPoolExecutor(max_workers=max_concurrent_operations)
         self.semaphore = asyncio.Semaphore(max_concurrent_operations)
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize backup strategy
         self.backup_strategy = BackupStrategy(
             state_manager=state_manager,
-            full_backup_interval_days=full_backup_interval_days
+            full_backup_interval_days=full_backup_interval_days,
         )
 
     async def create_instance_snapshot(self, instance_id: str, name: str) -> str:
@@ -72,17 +76,22 @@ class BackupEngine:
         """Verify backup success with timeout handling."""
         timeout_seconds = timeout_minutes * 60
         start_time = asyncio.get_event_loop().time()
-        
-        success_states = {"instance": ["active", "available"], "volume": ["available", "completed"]}
+
+        success_states = {
+            "instance": ["active", "available"],
+            "volume": ["available", "completed"],
+        }
         error_states = ["error", "failed", "deleted"]
         expected_states = success_states.get(resource_type, ["available", "completed"])
-        
+
         while (asyncio.get_event_loop().time() - start_time) < timeout_seconds:
             try:
-                status = await self.openstack_client.get_backup_status(backup_id, resource_type)
+                status = await self.openstack_client.get_backup_status(
+                    backup_id, resource_type
+                )
                 if not status:
                     return False
-                
+
                 status_lower = status.lower()
                 if status_lower in [s.lower() for s in expected_states]:
                     self.logger.info(f"Backup {backup_id} completed: {status}")
@@ -90,13 +99,15 @@ class BackupEngine:
                 if status_lower in error_states:
                     self.logger.error(f"Backup {backup_id} failed: {status}")
                     return False
-                    
+
                 await asyncio.sleep(10)  # Wait 10 seconds before next check
             except Exception as e:
                 self.logger.error(f"Error checking backup {backup_id}: {e}")
                 await asyncio.sleep(10)
-        
-        self.logger.warning(f"Backup {backup_id} verification timed out after {timeout_minutes}min")
+
+        self.logger.warning(
+            f"Backup {backup_id} verification timed out after {timeout_minutes}min"
+        )
         return False
 
     async def execute_parallel_operations(
@@ -185,7 +196,7 @@ class BackupEngine:
             # For backup operations (not snapshots), determine the actual backup type and parent
             actual_backup_type = operation.operation_type
             parent_backup_id = operation.parent_backup_id
-            
+
             if operation.operation_type in [BackupType.FULL, BackupType.INCREMENTAL]:
                 # Use backup strategy to determine the appropriate backup type
                 if operation.operation_type == BackupType.INCREMENTAL:
@@ -213,23 +224,31 @@ class BackupEngine:
 
             # Generate backup name with timestamp
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            backup_name = f"{operation.resource_name}-{actual_backup_type.value}-{timestamp}"
+            backup_name = (
+                f"{operation.resource_name}-{actual_backup_type.value}-{timestamp}"
+            )
 
             # Execute the appropriate backup operation with timeout
-            backup_creation_timeout = min(operation.timeout_minutes * 60 // 2, 1800)  # Max 30 minutes for creation
+            backup_creation_timeout = min(
+                operation.timeout_minutes * 60 // 2, 1800
+            )  # Max 30 minutes for creation
             backup_id = None
 
             try:
                 if actual_backup_type == BackupType.SNAPSHOT:
                     if operation.resource_type == "instance":
                         backup_id = await asyncio.wait_for(
-                            self.create_instance_snapshot(operation.resource_id, backup_name),
-                            timeout=backup_creation_timeout
+                            self.create_instance_snapshot(
+                                operation.resource_id, backup_name
+                            ),
+                            timeout=backup_creation_timeout,
                         )
                     elif operation.resource_type == "volume":
                         backup_id = await asyncio.wait_for(
-                            self.create_volume_snapshot(operation.resource_id, backup_name),
-                            timeout=backup_creation_timeout
+                            self.create_volume_snapshot(
+                                operation.resource_id, backup_name
+                            ),
+                            timeout=backup_creation_timeout,
                         )
 
                 elif actual_backup_type in [BackupType.FULL, BackupType.INCREMENTAL]:
@@ -241,13 +260,13 @@ class BackupEngine:
                                 actual_backup_type.value,
                                 parent_backup_id,
                             ),
-                            timeout=backup_creation_timeout
+                            timeout=backup_creation_timeout,
                         )
                     else:
                         raise ValueError(
                             f"Backup operations not supported for resource type: {operation.resource_type}"
                         )
-                        
+
             except asyncio.TimeoutError:
                 raise RuntimeError(
                     f"Backup creation timed out after {backup_creation_timeout} seconds"
@@ -288,22 +307,24 @@ class BackupEngine:
 
     def determine_backup_type(self, resource_id: str) -> BackupType:
         """Determine the appropriate backup type for a resource.
-        
+
         Args:
             resource_id: ID of the resource
-            
+
         Returns:
             BackupType indicating whether to create full or incremental backup
         """
         return self.backup_strategy.determine_backup_type(resource_id)
 
-    def get_parent_backup_id(self, resource_id: str, backup_type: BackupType) -> Optional[str]:
+    def get_parent_backup_id(
+        self, resource_id: str, backup_type: BackupType
+    ) -> Optional[str]:
         """Get the parent backup ID for incremental backups.
-        
+
         Args:
             resource_id: ID of the resource
             backup_type: Type of backup being created
-            
+
         Returns:
             Parent backup ID for incremental backups, None for full backups
         """
@@ -311,10 +332,10 @@ class BackupEngine:
 
     def validate_backup_chain_integrity(self, resource_id: str) -> bool:
         """Validate the integrity of the backup chain for a resource.
-        
+
         Args:
             resource_id: ID of the resource
-            
+
         Returns:
             True if backup chain is valid, False otherwise
         """
@@ -322,10 +343,10 @@ class BackupEngine:
 
     def get_backup_chain_summary(self, resource_id: str) -> dict:
         """Get a summary of the backup chain for a resource.
-        
+
         Args:
             resource_id: ID of the resource
-            
+
         Returns:
             Dictionary with backup chain statistics
         """
@@ -333,11 +354,11 @@ class BackupEngine:
 
     def should_create_backup(self, resource_id: str, backup_type: BackupType) -> bool:
         """Determine if a backup should be created based on strategy rules.
-        
+
         Args:
             resource_id: ID of the resource
             backup_type: Type of backup to create
-            
+
         Returns:
             True if backup should be created, False otherwise
         """
@@ -345,10 +366,10 @@ class BackupEngine:
 
     def find_orphaned_backups(self, resource_id: str) -> list:
         """Find backups that reference non-existent parents.
-        
+
         Args:
             resource_id: ID of the resource
-            
+
         Returns:
             List of orphaned backup info objects
         """
@@ -356,10 +377,10 @@ class BackupEngine:
 
     def can_safely_delete_backup(self, backup_id: str) -> dict:
         """Check if a backup can be safely deleted without breaking chains.
-        
+
         Args:
             backup_id: ID of the backup to check
-            
+
         Returns:
             Dictionary with safety check results
         """
@@ -367,11 +388,11 @@ class BackupEngine:
 
     def repair_chain_integrity(self, resource_id: str, dry_run: bool = True) -> dict:
         """Attempt to repair backup chain integrity issues.
-        
+
         Args:
             resource_id: ID of the resource
             dry_run: If True, only report what would be done without making changes
-            
+
         Returns:
             Dictionary with repair actions taken or planned
         """
@@ -379,10 +400,10 @@ class BackupEngine:
 
     def get_chain_roots(self, resource_id: str) -> list:
         """Get all root backups (full backups with no parents) for a resource.
-        
+
         Args:
             resource_id: ID of the resource
-            
+
         Returns:
             List of root backup info objects
         """
@@ -390,10 +411,10 @@ class BackupEngine:
 
     def get_chain_descendants(self, backup_id: str) -> list:
         """Get all descendants (children, grandchildren, etc.) of a backup.
-        
+
         Args:
             backup_id: ID of the parent backup
-            
+
         Returns:
             List of descendant backup info objects
         """

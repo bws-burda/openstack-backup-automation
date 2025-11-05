@@ -6,9 +6,16 @@ from typing import Any, Dict
 
 import yaml
 
-from .models import (AuthMethod, BackupConfig, Config, EmailSettings,
-                     OpenStackCredentials, RetentionPolicy, SchedulingConfig,
-                     SchedulingMode)
+from .models import (
+    AuthMethod,
+    BackupConfig,
+    Config,
+    EmailSettings,
+    OpenStackCredentials,
+    RetentionPolicy,
+    SchedulingConfig,
+    SchedulingMode,
+)
 
 
 class ConfigurationManager:
@@ -19,13 +26,16 @@ class ConfigurationManager:
 
     def _substitute_environment_variables(self, data: Any) -> Any:
         """Recursively substitute environment variables in configuration data.
-        
+
         Supports the following formats:
         - ${VAR_NAME} - Required environment variable
         - ${VAR_NAME:default_value} - Optional with default value
         """
         if isinstance(data, dict):
-            return {key: self._substitute_environment_variables(value) for key, value in data.items()}
+            return {
+                key: self._substitute_environment_variables(value)
+                for key, value in data.items()
+            }
         elif isinstance(data, list):
             return [self._substitute_environment_variables(item) for item in data]
         elif isinstance(data, str):
@@ -36,21 +46,23 @@ class ConfigurationManager:
     def _substitute_env_vars_in_string(self, text: str) -> str:
         """Substitute environment variables in a string."""
         # Pattern to match ${VAR_NAME} or ${VAR_NAME:default_value}
-        pattern = r'\$\{([^}:]+)(?::([^}]*))?\}'
-        
+        pattern = r"\$\{([^}:]+)(?::([^}]*))?\}"
+
         def replace_var(match):
             var_name = match.group(1)
             default_value = match.group(2) if match.group(2) is not None else None
-            
+
             env_value = os.getenv(var_name)
-            
+
             if env_value is not None:
                 return env_value
             elif default_value is not None:
                 return default_value
             else:
-                raise ValueError(f"Required environment variable '{var_name}' is not set")
-        
+                raise ValueError(
+                    f"Required environment variable '{var_name}' is not set"
+                )
+
         return re.sub(pattern, replace_var, text)
 
     def load_config(self, config_path: str) -> Config:
@@ -69,10 +81,14 @@ class ConfigurationManager:
                     raise ValueError(f"Invalid YAML syntax in configuration file: {e}")
 
             if raw_config_data is None:
-                raise ValueError("Configuration file is empty or contains only comments")
+                raise ValueError(
+                    "Configuration file is empty or contains only comments"
+                )
 
             if not isinstance(raw_config_data, dict):
-                raise ValueError("Configuration file must contain a YAML dictionary at the root level")
+                raise ValueError(
+                    "Configuration file must contain a YAML dictionary at the root level"
+                )
 
             # Substitute environment variables
             try:
@@ -83,7 +99,9 @@ class ConfigurationManager:
         except (FileNotFoundError, PermissionError, ValueError) as e:
             raise e
         except Exception as e:
-            raise RuntimeError(f"Unexpected error loading configuration file '{config_path}': {e}")
+            raise RuntimeError(
+                f"Unexpected error loading configuration file '{config_path}': {e}"
+            )
 
         try:
             # Parse OpenStack credentials
@@ -91,44 +109,51 @@ class ConfigurationManager:
             if not openstack_config:
                 raise ValueError("Missing required 'openstack' configuration section")
 
-            auth_method_str = openstack_config.get("auth_method", "application_credential")
+            auth_method_str = openstack_config.get(
+                "auth_method", "application_credential"
+            )
             try:
                 auth_method = AuthMethod(auth_method_str)
             except ValueError:
-                raise ValueError(f"Invalid auth_method '{auth_method_str}'. Must be 'application_credential' or 'password'")
+                raise ValueError(
+                    f"Invalid auth_method '{auth_method_str}'. Must be 'application_credential' or 'password'"
+                )
 
             openstack_creds = OpenStackCredentials(
                 auth_method=auth_method,
                 auth_url=openstack_config.get("auth_url"),
                 project_name=openstack_config.get("project_name"),
-                application_credential_id=openstack_config.get("application_credential_id"),
+                application_credential_id=openstack_config.get(
+                    "application_credential_id"
+                ),
                 application_credential_secret=openstack_config.get(
                     "application_credential_secret"
                 ),
                 username=openstack_config.get("username"),
                 password=openstack_config.get("password"),
                 user_domain_name=openstack_config.get("user_domain_name", "Default"),
-                project_domain_name=openstack_config.get("project_domain_name", "Default"),
+                project_domain_name=openstack_config.get(
+                    "project_domain_name", "Default"
+                ),
             )
 
             # Parse backup configuration
             backup_config_data = config_data.get("backup", {})
             backup_config = BackupConfig(
-                full_backup_interval_days=int(backup_config_data.get(
-                    "full_backup_interval_days", 7
-                )),
-                max_concurrent_operations=int(backup_config_data.get(
-                    "max_concurrent_operations", 5
-                )),
-                operation_timeout_minutes=int(backup_config_data.get(
-                    "operation_timeout_minutes", 60
-                )),
-
+                full_backup_interval_days=int(
+                    backup_config_data.get("full_backup_interval_days", 7)
+                ),
+                max_concurrent_operations=int(
+                    backup_config_data.get("max_concurrent_operations", 5)
+                ),
+                operation_timeout_minutes=int(
+                    backup_config_data.get("operation_timeout_minutes", 60)
+                ),
             )
 
             # Parse email settings
             email_config = config_data.get("notifications", {})
-            
+
             # Support both old and new configuration formats
             email_enabled = email_config.get("enabled", False)
             if "email" in email_config:
@@ -175,10 +200,12 @@ class ConfigurationManager:
 
             scheduling_config = SchedulingConfig(
                 mode=mode,
-                check_interval_minutes=int(scheduling_config_data.get(
-                    "check_interval_minutes", 15
-                )),
-                daemon_sleep_seconds=int(scheduling_config_data.get("daemon_sleep_seconds", 60)),
+                check_interval_minutes=int(
+                    scheduling_config_data.get("check_interval_minutes", 15)
+                ),
+                daemon_sleep_seconds=int(
+                    scheduling_config_data.get("daemon_sleep_seconds", 60)
+                ),
             )
 
             # Parse retention policies
@@ -187,12 +214,14 @@ class ConfigurationManager:
             for name, policy_data in retention_config.items():
                 if not isinstance(policy_data, dict):
                     raise ValueError(f"Retention policy '{name}' must be a dictionary")
-                
+
                 retention_policies[name] = RetentionPolicy(
-                    retention_days=int(policy_data.get(
-                        "retention_days", 30  # Default fallback
-                    )),
-                    keep_last_full_backup=bool(policy_data.get("keep_last_full_backup", True)),
+                    retention_days=int(
+                        policy_data.get("retention_days", 30)  # Default fallback
+                    ),
+                    keep_last_full_backup=bool(
+                        policy_data.get("keep_last_full_backup", True)
+                    ),
                 )
 
             # Create main config object
@@ -202,9 +231,7 @@ class ConfigurationManager:
                 notifications=email_settings,
                 scheduling=scheduling_config,
                 retention_policies=retention_policies,
-                database_path=config_data.get(
-                    "database_path", "./backup.db"
-                ),
+                database_path=config_data.get("database_path", "./backup.db"),
                 log_level=config_data.get("log_level", "INFO"),
                 log_file=config_data.get("log_file"),
             )

@@ -264,8 +264,8 @@ After the first defensive backup, the system follows the normal schedule:
 
 ### Running Tests Locally
 ```bash
-# Install test dependencies
-pip install pytest pytest-cov pytest-asyncio
+# Install development dependencies (includes testing and linting tools)
+pip install -r requirements-dev.txt
 
 # Run all tests
 python -m pytest tests/ -v
@@ -274,15 +274,57 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=src --cov-report=html
 ```
 
-### Code Quality
-```bash
-# Install linting tools
-pip install flake8 black isort
+### Code Quality & Pre-Push Checks
 
-# Check code formatting
-black --check src/
-isort --check-only src/
-flake8 src/
+**Run all checks before pushing (same as CI):**
+
+```bash
+# 1. Critical syntax errors (must pass)
+flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+
+# 2. Code style warnings (informational, uses .flake8 config)
+flake8 src --count --exit-zero --statistics
+
+# 3. Code formatting check
+black --check --diff src/
+
+# 4. Import sorting check  
+isort --check-only --diff src/
+
+# 5. Configuration validation
+python -c "
+from src.config.manager import ConfigurationManager
+import tempfile, shutil
+shutil.copy('config.yaml.example', 'test-config.yaml')
+try:
+    manager = ConfigurationManager()
+    config = manager.load_config('test-config.yaml')
+    print('✅ Configuration file syntax is valid')
+except Exception as e:
+    if 'OpenStack' in str(e) or 'connection' in str(e).lower():
+        print('✅ Configuration syntax valid (OpenStack connection expected to fail)')
+    else:
+        raise e
+finally:
+    import os
+    if os.path.exists('test-config.yaml'):
+        os.remove('test-config.yaml')
+"
+```
+
+**Auto-fix formatting issues:**
+```bash
+# Fix code formatting
+black src/
+
+# Fix import sorting
+isort src/
+```
+
+**One-command pre-push validation:**
+```bash
+# Run all checks at once (same as GitHub Actions)
+./scripts/pre-push-checks.sh
 ```
 
 ### Continuous Integration

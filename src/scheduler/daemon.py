@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import signal
-import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -13,9 +12,11 @@ from .coordinator import ExecutionCoordinator
 class DaemonScheduler:
     """Daemon scheduler that runs backup cycles at regular intervals."""
 
-    def __init__(self, coordinator: ExecutionCoordinator, check_interval_minutes: int = 15):
+    def __init__(
+        self, coordinator: ExecutionCoordinator, check_interval_minutes: int = 15
+    ):
         """Initialize the daemon scheduler.
-        
+
         Args:
             coordinator: Execution coordinator for backup operations
             check_interval_minutes: Interval between backup cycle checks
@@ -34,7 +35,9 @@ class DaemonScheduler:
             self.logger.warning("Daemon scheduler is already running")
             return
 
-        self.logger.info(f"Starting daemon scheduler with {self.check_interval_minutes}-minute intervals")
+        self.logger.info(
+            f"Starting daemon scheduler with {self.check_interval_minutes}-minute intervals"
+        )
         self._running = True
         self._shutdown_event.clear()
 
@@ -72,8 +75,11 @@ class DaemonScheduler:
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
+
         def signal_handler(signum, frame):
-            self.logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+            self.logger.info(
+                f"Received signal {signum}, initiating graceful shutdown..."
+            )
             asyncio.create_task(self.stop())
 
         # Handle SIGTERM and SIGINT for graceful shutdown
@@ -83,7 +89,7 @@ class DaemonScheduler:
     async def _run_scheduler_loop(self) -> None:
         """Main scheduler loop that runs backup cycles at intervals."""
         self.logger.info("Daemon scheduler loop started")
-        
+
         # Run initial backup cycle
         await self._execute_backup_cycle()
 
@@ -91,8 +97,7 @@ class DaemonScheduler:
             try:
                 # Wait for the next interval or shutdown signal
                 await asyncio.wait_for(
-                    self._shutdown_event.wait(),
-                    timeout=self.check_interval_seconds
+                    self._shutdown_event.wait(), timeout=self.check_interval_seconds
                 )
                 # If we get here, shutdown was requested
                 break
@@ -111,16 +116,16 @@ class DaemonScheduler:
             self._current_task = asyncio.create_task(
                 self.coordinator.execute_backup_cycle(dry_run=False)
             )
-            
+
             # Execute the backup cycle
             results = await self._current_task
-            
+
             # Log summary
             duration = results.get("duration_seconds", 0)
             successful = results.get("successful_operations", 0)
             failed = results.get("failed_operations", 0)
             deleted = results.get("retention_deleted", 0)
-            
+
             self.logger.info(
                 f"Backup cycle completed in {duration:.1f}s: "
                 f"{successful} successful, {failed} failed, {deleted} cleaned up"
@@ -178,9 +183,11 @@ class DaemonScheduler:
 class DaemonRunner:
     """High-level daemon runner that manages the complete daemon lifecycle."""
 
-    def __init__(self, coordinator: ExecutionCoordinator, check_interval_minutes: int = 15):
+    def __init__(
+        self, coordinator: ExecutionCoordinator, check_interval_minutes: int = 15
+    ):
         """Initialize the daemon runner.
-        
+
         Args:
             coordinator: Execution coordinator for backup operations
             check_interval_minutes: Interval between backup cycle checks

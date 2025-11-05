@@ -4,7 +4,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 
 class AuthMethod(Enum):
@@ -38,7 +38,7 @@ class OpenStackCredentials:
     password: Optional[str] = None
     user_domain_name: Optional[str] = "Default"
     project_domain_name: Optional[str] = "Default"
-    
+
     # Optional fields
     region_name: Optional[str] = None
 
@@ -101,7 +101,9 @@ class EmailSettings:
             return
 
         if not self.recipient:
-            raise ValueError("Email recipient is required when notifications are enabled")
+            raise ValueError(
+                "Email recipient is required when notifications are enabled"
+            )
 
         if not self.sender:
             raise ValueError("Email sender is required when notifications are enabled")
@@ -161,8 +163,6 @@ class BackupConfig:
     full_backup_interval_days: int = 7
     max_concurrent_operations: int = 5
     operation_timeout_minutes: int = 60
-    
-
 
     def __post_init__(self):
         """Validate backup configuration after initialization."""
@@ -189,10 +189,6 @@ class BackupConfig:
             raise ValueError(
                 f"Operation timeout must be positive, got: {self.operation_timeout_minutes}"
             )
-
-
-        
-
 
         # Warn about very short full backup intervals
         if self.full_backup_interval_days < 3:

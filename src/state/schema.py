@@ -53,7 +53,7 @@ class DatabaseSchema:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (backup_id) REFERENCES backups (backup_id) ON DELETE CASCADE
         )
-        """
+        """,
     ]
 
     # Indexes for performance
@@ -64,12 +64,12 @@ class DatabaseSchema:
         "CREATE INDEX IF NOT EXISTS idx_backups_parent_backup_id ON backups (parent_backup_id)",
         "CREATE INDEX IF NOT EXISTS idx_resources_type ON resources (type)",
         "CREATE INDEX IF NOT EXISTS idx_resources_active ON resources (active)",
-        "CREATE INDEX IF NOT EXISTS idx_resources_last_scanned ON resources (last_scanned)"
+        "CREATE INDEX IF NOT EXISTS idx_resources_last_scanned ON resources (last_scanned)",
     ]
 
     def __init__(self, db_path: str):
         """Initialize database schema manager.
-        
+
         Args:
             db_path: Path to SQLite database file
         """
@@ -82,32 +82,34 @@ class DatabaseSchema:
         with sqlite3.connect(self.db_path) as conn:
             # Enable foreign key constraints
             conn.execute("PRAGMA foreign_keys = ON")
-            
+
             # Create tables
             for sql in self.CREATE_TABLES_SQL:
                 conn.execute(sql)
-            
+
             # Create indexes
             for sql in self.CREATE_INDEXES_SQL:
                 conn.execute(sql)
-            
+
             # Set schema version
             conn.execute(
                 "INSERT OR REPLACE INTO schema_version (version) VALUES (?)",
-                (self.SCHEMA_VERSION,)
+                (self.SCHEMA_VERSION,),
             )
-            
+
             conn.commit()
 
     def get_current_version(self) -> Optional[int]:
         """Get current database schema version.
-        
+
         Returns:
             Current schema version or None if not set
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1")
+                cursor = conn.execute(
+                    "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+                )
                 result = cursor.fetchone()
                 return result[0] if result else None
         except sqlite3.OperationalError:
@@ -116,7 +118,7 @@ class DatabaseSchema:
 
     def needs_migration(self) -> bool:
         """Check if database needs migration.
-        
+
         Returns:
             True if migration is needed
         """
@@ -126,12 +128,12 @@ class DatabaseSchema:
     def migrate_database(self) -> None:
         """Migrate database to current schema version."""
         current_version = self.get_current_version()
-        
+
         if current_version is None:
             # Fresh database
             self.initialize_database()
             return
-        
+
         if current_version < self.SCHEMA_VERSION:
             # Future migrations would go here
             # For now, we only have version 1
@@ -139,60 +141,73 @@ class DatabaseSchema:
 
     def validate_database(self) -> bool:
         """Validate database schema integrity.
-        
+
         Returns:
             True if database schema is valid
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # Check if all required tables exist
-                cursor = conn.execute("""
-                    SELECT name FROM sqlite_master 
+                cursor = conn.execute(
+                    """
+                    SELECT name FROM sqlite_master
                     WHERE type='table' AND name IN ('resources', 'backups', 'backup_metadata', 'schema_version')
-                """)
+                """
+                )
                 tables = {row[0] for row in cursor.fetchall()}
-                required_tables = {'resources', 'backups', 'backup_metadata', 'schema_version'}
-                
+                required_tables = {
+                    "resources",
+                    "backups",
+                    "backup_metadata",
+                    "schema_version",
+                }
+
                 if not required_tables.issubset(tables):
                     return False
-                
+
                 # Check schema version
                 current_version = self.get_current_version()
                 return current_version == self.SCHEMA_VERSION
-                
+
         except sqlite3.Error:
             return False
 
     def get_database_stats(self) -> dict:
         """Get database statistics.
-        
+
         Returns:
             Dictionary with database statistics
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 stats = {}
-                
+
                 # Count resources
-                cursor = conn.execute("SELECT COUNT(*) FROM resources WHERE active = TRUE")
-                stats['active_resources'] = cursor.fetchone()[0]
-                
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM resources WHERE active = TRUE"
+                )
+                stats["active_resources"] = cursor.fetchone()[0]
+
                 # Count backups by type
-                cursor = conn.execute("""
-                    SELECT backup_type, COUNT(*) 
-                    FROM backups 
+                cursor = conn.execute(
+                    """
+                    SELECT backup_type, COUNT(*)
+                    FROM backups
                     GROUP BY backup_type
-                """)
+                """
+                )
                 backup_counts = dict(cursor.fetchall())
-                stats['backup_counts'] = backup_counts
-                
+                stats["backup_counts"] = backup_counts
+
                 # Total backups
-                stats['total_backups'] = sum(backup_counts.values())
-                
+                stats["total_backups"] = sum(backup_counts.values())
+
                 # Database file size
-                stats['db_size_bytes'] = self.db_path.stat().st_size if self.db_path.exists() else 0
-                
+                stats["db_size_bytes"] = (
+                    self.db_path.stat().st_size if self.db_path.exists() else 0
+                )
+
                 return stats
-                
+
         except sqlite3.Error as e:
-            return {'error': str(e)}
+            return {"error": str(e)}

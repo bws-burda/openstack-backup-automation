@@ -1,9 +1,8 @@
 """Main execution coordinator for backup operations."""
 
-import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ..backup.engine import BackupEngine
 from ..backup.models import BackupOperation, BackupType, OperationResult
@@ -14,7 +13,6 @@ from ..interfaces import (
     StateManagerInterface,
     TagScannerInterface,
 )
-from ..retention.manager import RetentionManager
 from ..scanner.models import OperationType, ScheduledResource
 
 
@@ -31,7 +29,7 @@ class ExecutionCoordinator:
         notification_service: NotificationServiceInterface,
     ):
         """Initialize the execution coordinator.
-        
+
         Args:
             config: System configuration
             tag_scanner: Scanner for discovering scheduled resources
@@ -50,22 +48,22 @@ class ExecutionCoordinator:
 
     async def execute_backup_cycle(self, dry_run: bool = False) -> Dict[str, Any]:
         """Execute a complete backup cycle.
-        
+
         This is the main entry point that orchestrates:
         1. Resource discovery via tag scanning
         2. Backup operation execution
         3. Retention cleanup
         4. Notification of results
-        
+
         Args:
             dry_run: If True, only report what would be done without executing
-            
+
         Returns:
             Dictionary with execution results and statistics
         """
         cycle_start = datetime.now(timezone.utc)
         self.logger.info(f"Starting backup cycle at {cycle_start}")
-        
+
         if dry_run:
             self.logger.info("DRY RUN MODE - No actual operations will be performed")
 
@@ -87,7 +85,7 @@ class ExecutionCoordinator:
             self.logger.info("Phase 1: Discovering scheduled resources")
             discovered_resources = await self._discover_resources()
             results["discovered_resources"] = len(discovered_resources)
-            
+
             if not discovered_resources:
                 self.logger.info("No scheduled resources found")
                 return results
@@ -96,17 +94,25 @@ class ExecutionCoordinator:
             self.logger.info("Phase 2: Determining resources due for backup")
             due_resources = await self._get_due_resources(discovered_resources)
             results["due_resources"] = len(due_resources)
-            
+
             if not due_resources:
                 self.logger.info("No resources are due for backup at this time")
             else:
                 # Phase 3: Execute Backup Operations
-                self.logger.info(f"Phase 3: Executing backup operations for {len(due_resources)} resources")
-                operation_results = await self._execute_backup_operations(due_resources, dry_run)
+                self.logger.info(
+                    f"Phase 3: Executing backup operations for {len(due_resources)} resources"
+                )
+                operation_results = await self._execute_backup_operations(
+                    due_resources, dry_run
+                )
                 results["operation_results"] = operation_results
                 results["operations_executed"] = len(operation_results)
-                results["successful_operations"] = sum(1 for r in operation_results if r.is_successful)
-                results["failed_operations"] = sum(1 for r in operation_results if not r.is_successful)
+                results["successful_operations"] = sum(
+                    1 for r in operation_results if r.is_successful
+                )
+                results["failed_operations"] = sum(
+                    1 for r in operation_results if not r.is_successful
+                )
 
             # Phase 4: Retention Cleanup
             self.logger.info("Phase 4: Performing retention cleanup")
@@ -122,20 +128,24 @@ class ExecutionCoordinator:
             error_msg = f"Critical error during backup cycle: {e}"
             self.logger.error(error_msg, exc_info=True)
             results["errors"].append(error_msg)
-            
+
             # Send error notification
             if not dry_run:
                 try:
-                    await self._send_error_notification(e, {"phase": "backup_cycle", "results": results})
+                    await self._send_error_notification(
+                        e, {"phase": "backup_cycle", "results": results}
+                    )
                 except Exception as notification_error:
-                    self.logger.error(f"Failed to send error notification: {notification_error}")
+                    self.logger.error(
+                        f"Failed to send error notification: {notification_error}"
+                    )
 
         finally:
             cycle_end = datetime.now(timezone.utc)
             duration = (cycle_end - cycle_start).total_seconds()
             results["cycle_end"] = cycle_end
             results["duration_seconds"] = duration
-            
+
             self.logger.info(
                 f"Backup cycle completed in {duration:.1f}s: "
                 f"{results['successful_operations']}/{results['operations_executed']} operations successful, "
@@ -149,7 +159,7 @@ class ExecutionCoordinator:
         try:
             resources = await self.tag_scanner.scan_all_resources()
             self.logger.info(f"Discovered {len(resources)} scheduled resources")
-            
+
             # Update resource status in state manager
             for resource in resources:
                 try:
@@ -157,40 +167,54 @@ class ExecutionCoordinator:
                     last_backup_info = self.state_manager.get_last_backup(resource.id)
                     if last_backup_info:
                         resource.last_backup = last_backup_info.created_at
-                    
+
                     # Update resource status
                     self.state_manager.update_resource_status(
-                        resource.id, 
+                        resource.id,
                         resource.last_backup or datetime.now(timezone.utc),
-                        active=True
+                        active=True,
                     )
                 except Exception as e:
-                    self.logger.warning(f"Failed to update status for resource {resource.id}: {e}")
-            
+                    self.logger.warning(
+                        f"Failed to update status for resource {resource.id}: {e}"
+                    )
+
             return resources
-            
+
         except Exception as e:
             self.logger.error(f"Failed to discover resources: {e}")
             raise
 
-    async def _get_due_resources(self, resources: List[ScheduledResource]) -> List[ScheduledResource]:
+    async def _get_due_resources(
+        self, resources: List[ScheduledResource]
+    ) -> List[ScheduledResource]:
         """Determine which resources are due for backup."""
         try:
             due_resources = self.tag_scanner.get_due_resources(resources)
-            
+
             if due_resources:
-                self.logger.info(f"Found {len(due_resources)} resources due for backup:")
+                self.logger.info(
+                    f"Found {len(due_resources)} resources due for backup:"
+                )
                 for resource in due_resources:
-                    last_backup_str = resource.last_backup.strftime("%Y-%m-%d %H:%M:%S") if resource.last_backup else "Never"
-                    self.logger.info(f"  - {resource.name} ({resource.id}): {resource.schedule_tag}, last backup: {last_backup_str}")
-            
+                    last_backup_str = (
+                        resource.last_backup.strftime("%Y-%m-%d %H:%M:%S")
+                        if resource.last_backup
+                        else "Never"
+                    )
+                    self.logger.info(
+                        f"  - {resource.name} ({resource.id}): {resource.schedule_tag}, last backup: {last_backup_str}"
+                    )
+
             return due_resources
-            
+
         except Exception as e:
             self.logger.error(f"Failed to determine due resources: {e}")
             raise
 
-    async def _execute_backup_operations(self, resources: List[ScheduledResource], dry_run: bool) -> List[OperationResult]:
+    async def _execute_backup_operations(
+        self, resources: List[ScheduledResource], dry_run: bool
+    ) -> List[OperationResult]:
         """Execute backup operations for due resources."""
         if not resources:
             return []
@@ -202,36 +226,44 @@ class ExecutionCoordinator:
                 operation = self._create_backup_operation(resource)
                 operations.append(operation)
             except Exception as e:
-                self.logger.error(f"Failed to create backup operation for resource {resource.id}: {e}")
+                self.logger.error(
+                    f"Failed to create backup operation for resource {resource.id}: {e}"
+                )
 
         if not operations:
             self.logger.warning("No valid backup operations could be created")
             return []
 
         if dry_run:
-            self.logger.info(f"DRY RUN: Would execute {len(operations)} backup operations:")
+            self.logger.info(
+                f"DRY RUN: Would execute {len(operations)} backup operations:"
+            )
             for op in operations:
-                self.logger.info(f"  - {op.resource_name} ({op.resource_id}): {op.operation_type.value}")
+                self.logger.info(
+                    f"  - {op.resource_name} ({op.resource_id}): {op.operation_type.value}"
+                )
             return []
 
         # Execute operations in parallel
         try:
             results = await self.backup_engine.execute_parallel_operations(operations)
-            
+
             # Log results
             successful = [r for r in results if r.is_successful]
             failed = [r for r in results if not r.is_successful]
-            
-            self.logger.info(f"Backup operations completed: {len(successful)} successful, {len(failed)} failed")
-            
+
+            self.logger.info(
+                f"Backup operations completed: {len(successful)} successful, {len(failed)} failed"
+            )
+
             for result in failed:
                 self.logger.error(
                     f"Backup failed for {result.operation.resource_name} ({result.operation.resource_id}): "
                     f"{result.error_message}"
                 )
-            
+
             return results
-            
+
         except Exception as e:
             self.logger.error(f"Failed to execute backup operations: {e}")
             raise
@@ -249,7 +281,9 @@ class ExecutionCoordinator:
                 backup_type = self.backup_engine.determine_backup_type(resource.id)
                 parent_backup_id = None
                 if backup_type == BackupType.INCREMENTAL:
-                    parent_backup_id = self.backup_engine.get_parent_backup_id(resource.id, backup_type)
+                    parent_backup_id = self.backup_engine.get_parent_backup_id(
+                        resource.id, backup_type
+                    )
                     if not parent_backup_id:
                         # No valid parent, create full backup instead
                         backup_type = BackupType.FULL
@@ -258,7 +292,9 @@ class ExecutionCoordinator:
                 backup_type = BackupType.SNAPSHOT
                 parent_backup_id = None
         else:
-            raise ValueError(f"Unknown operation type: {resource.schedule_info.operation_type}")
+            raise ValueError(
+                f"Unknown operation type: {resource.schedule_info.operation_type}"
+            )
 
         return BackupOperation(
             resource_id=resource.id,
@@ -282,18 +318,22 @@ class ExecutionCoordinator:
                 use_tag_policies=True,
                 use_batch_deletion=True,
                 batch_size=5,
-                backup_config=self.config.backup
+                backup_config=self.config.backup,
             )
-            
+
             deleted_count = cleanup_result.get("deleted_count", 0)
-            
+
             if deleted_count > 0:
-                self.logger.info(f"Retention cleanup completed: {deleted_count} backups deleted")
+                self.logger.info(
+                    f"Retention cleanup completed: {deleted_count} backups deleted"
+                )
             else:
-                self.logger.info("Retention cleanup completed: no backups needed deletion")
-            
+                self.logger.info(
+                    "Retention cleanup completed: no backups needed deletion"
+                )
+
             return deleted_count
-            
+
         except Exception as e:
             self.logger.error(f"Failed to perform retention cleanup: {e}")
             return 0
@@ -303,10 +343,16 @@ class ExecutionCoordinator:
         try:
             # Send backup report if there were operations
             if results["operations_executed"] > 0:
-                successful_ops = [r for r in results["operation_results"] if r.is_successful]
-                failed_ops = [r for r in results["operation_results"] if not r.is_successful]
-                
-                success = self.notification_service.send_backup_report(successful_ops, failed_ops)
+                successful_ops = [
+                    r for r in results["operation_results"] if r.is_successful
+                ]
+                failed_ops = [
+                    r for r in results["operation_results"] if not r.is_successful
+                ]
+
+                success = self.notification_service.send_backup_report(
+                    successful_ops, failed_ops
+                )
                 if not success:
                     self.logger.warning("Failed to send backup report notification")
 
@@ -321,7 +367,9 @@ class ExecutionCoordinator:
         except Exception as e:
             self.logger.error(f"Failed to send notifications: {e}")
 
-    async def _send_error_notification(self, error: Exception, context: Dict[str, Any]) -> None:
+    async def _send_error_notification(
+        self, error: Exception, context: Dict[str, Any]
+    ) -> None:
         """Send error notification."""
         try:
             success = self.notification_service.send_error_notification(error, context)
@@ -336,23 +384,28 @@ class ExecutionCoordinator:
             # Get resource counts
             all_resources = await self.tag_scanner.scan_all_resources()
             due_resources = self.tag_scanner.get_due_resources(all_resources)
-            
+
             # Get recent backup statistics
             recent_backups = []
             for resource in all_resources:
                 last_backup = self.state_manager.get_last_backup(resource.id)
                 if last_backup:
                     recent_backups.append(last_backup)
-            
+
             # Sort by creation time, most recent first
-            recent_backups.sort(key=lambda b: b.created_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-            
+            recent_backups.sort(
+                key=lambda b: b.created_at or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+
             status = {
                 "timestamp": datetime.now(timezone.utc),
                 "total_scheduled_resources": len(all_resources),
                 "resources_due_for_backup": len(due_resources),
                 "recent_backups_count": len(recent_backups),
-                "last_backup_time": recent_backups[0].created_at if recent_backups else None,
+                "last_backup_time": (
+                    recent_backups[0].created_at if recent_backups else None
+                ),
                 "config": {
                     "max_concurrent_operations": self.config.backup.max_concurrent_operations,
                     "operation_timeout_minutes": self.config.backup.operation_timeout_minutes,
@@ -361,17 +414,33 @@ class ExecutionCoordinator:
                     "check_interval_minutes": self.config.scheduling.check_interval_minutes,
                 },
                 "resources_by_type": {
-                    "instances": len([r for r in all_resources if r.type.value == "instance"]),
-                    "volumes": len([r for r in all_resources if r.type.value == "volume"]),
+                    "instances": len(
+                        [r for r in all_resources if r.type.value == "instance"]
+                    ),
+                    "volumes": len(
+                        [r for r in all_resources if r.type.value == "volume"]
+                    ),
                 },
                 "resources_by_operation": {
-                    "snapshot": len([r for r in all_resources if r.schedule_info.operation_type == OperationType.SNAPSHOT]),
-                    "backup": len([r for r in all_resources if r.schedule_info.operation_type == OperationType.BACKUP]),
+                    "snapshot": len(
+                        [
+                            r
+                            for r in all_resources
+                            if r.schedule_info.operation_type == OperationType.SNAPSHOT
+                        ]
+                    ),
+                    "backup": len(
+                        [
+                            r
+                            for r in all_resources
+                            if r.schedule_info.operation_type == OperationType.BACKUP
+                        ]
+                    ),
                 },
             }
-            
+
             return status
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get system status: {e}")
             return {
@@ -395,7 +464,9 @@ class ExecutionCoordinator:
                 # Try to scan resources as a connectivity test
                 resources = await self.tag_scanner.scan_all_resources()
                 health["checks"]["openstack_connectivity"] = "ok"
-                health["checks"]["resource_discovery"] = f"ok - {len(resources)} resources found"
+                health["checks"][
+                    "resource_discovery"
+                ] = f"ok - {len(resources)} resources found"
             except Exception as e:
                 health["checks"]["openstack_connectivity"] = f"failed - {e}"
                 health["errors"].append(f"OpenStack connectivity failed: {e}")
@@ -404,7 +475,7 @@ class ExecutionCoordinator:
             # Check database connectivity
             try:
                 # Try to get backup count as a database test
-                test_backup = self.state_manager.get_last_backup("test-resource-id")
+                _ = self.state_manager.get_last_backup("test-resource-id")
                 health["checks"]["database_connectivity"] = "ok"
             except Exception as e:
                 health["checks"]["database_connectivity"] = f"failed - {e}"

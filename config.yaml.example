@@ -174,8 +174,9 @@ database_path: "./backup.db"
 # Logging configuration
 log_level: "INFO"
 log_file: "./logs/backup.log"
-# Mo
-nitoring Configuration (Optional)
+
+# ===================================
+# Monitoring Configuration (Optional)
 # ===================================
 monitoring:
   enabled: true

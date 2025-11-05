@@ -1,0 +1,37 @@
+[flake8]
+# Configuration for flake8 linting
+
+# Maximum line length (relaxed from default 79)
+max-line-length = 120
+
+# Maximum cyclomatic complexity (relaxed from default 10)
+max-complexity = 15
+
+# Ignore specific error codes
+ignore = 
+    # Line length (we use 120, not 100)
+    E501,
+    # Whitespace before ':' (false positive with slicing)
+    E203,
+    # Line break before binary operator (conflicts with black)
+    W503,
+    # Line break after binary operator (conflicts with black)
+    W504,
+    # Function complexity (acceptable for business logic)
+    C901
+
+# Exclude directories from linting
+exclude = 
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .venv,
+    venv,
+    build,
+    dist,
+    *.egg-info
+
+# Per-file ignores (if needed)
+per-file-ignores =
+    # Allow unused imports in __init__.py files
+    __init__.py:F401

@@ -28,10 +28,10 @@ class NotificationService(NotificationServiceInterface):
         if not self.email_enabled:
             self.logger.info(f"Email notifications disabled - logging error: {error}")
             return True  # Consider it successful since logging is the fallback
-            
+
         error_type = self._categorize_error(error)
-        operation = context.get('operation', 'Unknown Operation')
-        
+        operation = context.get("operation", "Unknown Operation")
+
         subject = f"🚨 OpenStack Backup {error_type} - {operation}"
 
         # Get error-specific template
@@ -43,12 +43,20 @@ class NotificationService(NotificationServiceInterface):
         """Categorize error type for better notification handling."""
         error_str = str(error).lower()
         error_type = type(error).__name__
-        
-        if "auth" in error_str or "credential" in error_str or "unauthorized" in error_str:
+
+        if (
+            "auth" in error_str
+            or "credential" in error_str
+            or "unauthorized" in error_str
+        ):
             return "Authentication Error"
         elif "quota" in error_str or "limit" in error_str:
             return "Quota/Limit Error"
-        elif "network" in error_str or "connection" in error_str or isinstance(error, (socket.error, ConnectionError)):
+        elif (
+            "network" in error_str
+            or "connection" in error_str
+            or isinstance(error, (socket.error, ConnectionError))
+        ):
             return "Network Error"
         elif "timeout" in error_str or "timed out" in error_str:
             return "Timeout Error"
@@ -59,13 +67,15 @@ class NotificationService(NotificationServiceInterface):
         else:
             return f"System Error ({error_type})"
 
-    def _get_error_template(self, error: Exception, error_type: str, context: Dict[str, Any]) -> str:
+    def _get_error_template(
+        self, error: Exception, error_type: str, context: Dict[str, Any]
+    ) -> str:
         """Get error-specific email template."""
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
-        operation = context.get('operation', 'Unknown')
-        resource_id = context.get('resource_id', 'Unknown')
-        resource_type = context.get('resource_type', 'Unknown')
-        
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        operation = context.get("operation", "Unknown")
+        resource_id = context.get("resource_id", "Unknown")
+        resource_type = context.get("resource_type", "Unknown")
+
         # Base template
         body = f"""
 OpenStack Backup Automation - {error_type}
@@ -122,7 +132,7 @@ Error Details:
         if context:
             body += "Context Information:\n"
             for key, value in context.items():
-                if key not in ['operation', 'resource_id', 'resource_type']:
+                if key not in ["operation", "resource_id", "resource_type"]:
                     body += f"  {key}: {value}\n"
             body += "\n"
 
@@ -141,9 +151,11 @@ OpenStack Backup Automation System
     ) -> bool:
         """Send backup operation summary report."""
         if not self.email_enabled:
-            self.logger.info(f"Email notifications disabled - backup report: {len(successful_operations)} successful, {len(failed_operations)} failed")
+            self.logger.info(
+                f"Email notifications disabled - backup report: {len(successful_operations)} successful, {len(failed_operations)} failed"
+            )
             return True
-            
+
         total_operations = len(successful_operations) + len(failed_operations)
         success_rate = (
             (len(successful_operations) / total_operations * 100)
@@ -195,9 +207,11 @@ OpenStack Backup Automation System
     def send_retention_report(self, deleted_count: int, errors: List[str]) -> bool:
         """Send retention cleanup report."""
         if not self.email_enabled:
-            self.logger.info(f"Email notifications disabled - retention report: {deleted_count} backups deleted, {len(errors)} errors")
+            self.logger.info(
+                f"Email notifications disabled - retention report: {deleted_count} backups deleted, {len(errors)} errors"
+            )
             return True
-            
+
         subject = f"OpenStack Backup Retention Report - {deleted_count} Backups Cleaned"
 
         body = f"""
@@ -236,7 +250,9 @@ OpenStack Backup Automation System
             msg["From"] = self.email_settings.sender
             msg["To"] = self.email_settings.recipient
             msg["Subject"] = subject
-            msg["Date"] = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')
+            msg["Date"] = datetime.now(timezone.utc).strftime(
+                "%a, %d %b %Y %H:%M:%S +0000"
+            )
 
             # Attach body
             msg.attach(MIMEText(body, "plain", "utf-8"))
@@ -246,28 +262,30 @@ OpenStack Backup Automation System
             try:
                 if self.email_settings.use_tls:
                     server = smtplib.SMTP(
-                        self.email_settings.smtp_server, 
+                        self.email_settings.smtp_server,
                         self.email_settings.smtp_port,
-                        timeout=30
+                        timeout=30,
                     )
                     server.starttls()
                 else:
                     server = smtplib.SMTP(
-                        self.email_settings.smtp_server, 
+                        self.email_settings.smtp_server,
                         self.email_settings.smtp_port,
-                        timeout=30
+                        timeout=30,
                     )
 
                 # Login if credentials provided
                 if self.email_settings.username and self.email_settings.password:
-                    server.login(self.email_settings.username, self.email_settings.password)
+                    server.login(
+                        self.email_settings.username, self.email_settings.password
+                    )
 
                 # Send email
                 text = msg.as_string()
                 server.sendmail(
                     self.email_settings.sender, self.email_settings.recipient, text
                 )
-                
+
                 self.logger.info(f"Email notification sent successfully: {subject}")
                 return True
 
@@ -290,5 +308,5 @@ OpenStack Backup Automation System
             self.logger.error(f"SMTP DNS resolution failed: {e}")
         except Exception as e:
             self.logger.error(f"Failed to send email notification: {e}")
-        
+
         return False

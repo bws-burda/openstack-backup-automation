@@ -5,11 +5,16 @@ import re
 from datetime import datetime, time, timezone
 from typing import TYPE_CHECKING, Any, List, Optional
 
-from .models import (Frequency, OperationType, ResourceType, ScheduledResource,
-                     ScheduleInfo)
+from .models import (
+    Frequency,
+    OperationType,
+    ResourceType,
+    ScheduledResource,
+    ScheduleInfo,
+)
 
 if TYPE_CHECKING:
-    from ..interfaces import OpenStackClientInterface, TagScannerInterface
+    pass
 
 
 class TagScanner:
@@ -41,7 +46,7 @@ class TagScanner:
             if not instance_id:
                 self.logger.warning("Found instance without ID, skipping")
                 continue
-                
+
             instance_name = instance.get("name", f"instance-{instance_id}")
             tags = instance.get("tags", [])
 
@@ -51,13 +56,15 @@ class TagScanner:
                 schedule_info = self.parse_schedule_tag(tag)
                 if schedule_info:
                     valid_schedule_tags.append((tag, schedule_info))
-            
+
             if valid_schedule_tags:
                 # Use the first valid schedule tag
                 tag, schedule_info = valid_schedule_tags[0]
                 if len(valid_schedule_tags) > 1:
-                    self.logger.warning(f"Instance {instance_id} has multiple schedule tags, using first valid one: {tag}")
-                
+                    self.logger.warning(
+                        f"Instance {instance_id} has multiple schedule tags, using first valid one: {tag}"
+                    )
+
                 # Add the instance itself
                 scheduled_resource = ScheduledResource(
                     id=instance_id,
@@ -67,16 +74,22 @@ class TagScanner:
                     last_scanned=datetime.now(timezone.utc),
                 )
                 scheduled_resources.append(scheduled_resource)
-                self.logger.debug(f"Found scheduled instance: {instance_name} ({instance_id}) with schedule {tag}")
-                
+                self.logger.debug(
+                    f"Found scheduled instance: {instance_name} ({instance_id}) with schedule {tag}"
+                )
+
                 # If this is a BACKUP tag, also schedule all attached volumes for backup
                 if schedule_info.operation_type == OperationType.BACKUP:
                     try:
-                        attached_volumes = await self.openstack_client.get_instance_volumes(instance_id)
+                        attached_volumes = (
+                            await self.openstack_client.get_instance_volumes(
+                                instance_id
+                            )
+                        )
                         for volume in attached_volumes:
                             volume_id = volume.get("id")
                             volume_name = volume.get("name", f"volume-{volume_id}")
-                            
+
                             if volume_id:
                                 # Create a volume backup schedule with the same timing as the instance
                                 volume_scheduled_resource = ScheduledResource(
@@ -87,10 +100,14 @@ class TagScanner:
                                     last_scanned=datetime.now(timezone.utc),
                                 )
                                 scheduled_resources.append(volume_scheduled_resource)
-                                self.logger.info(f"Auto-scheduled volume backup: {volume_name} ({volume_id}) from instance {instance_name}")
-                    
+                                self.logger.info(
+                                    f"Auto-scheduled volume backup: {volume_name} ({volume_id}) from instance {instance_name}"
+                                )
+
                     except Exception as e:
-                        self.logger.warning(f"Could not get attached volumes for instance {instance_id}: {e}")
+                        self.logger.warning(
+                            f"Could not get attached volumes for instance {instance_id}: {e}"
+                        )
                         # Continue without the volumes - the instance backup will still work
 
         self.logger.info(f"Found {len(scheduled_resources)} scheduled instances")
@@ -113,7 +130,7 @@ class TagScanner:
             if not volume_id:
                 self.logger.warning("Found volume without ID, skipping")
                 continue
-                
+
             volume_name = volume.get("name", f"volume-{volume_id}")
 
             # Volume tags might be in metadata or tags field
@@ -127,11 +144,7 @@ class TagScanner:
                     if self._looks_like_schedule_tag(k)
                 ]
                 tags.extend(
-                    [
-                        k
-                        for k in metadata.keys()
-                        if self._looks_like_schedule_tag(k)
-                    ]
+                    [k for k in metadata.keys() if self._looks_like_schedule_tag(k)]
                 )
 
             # Look for schedule tags
@@ -140,13 +153,15 @@ class TagScanner:
                 schedule_info = self.parse_schedule_tag(tag)
                 if schedule_info:
                     valid_schedule_tags.append((tag, schedule_info))
-            
+
             if valid_schedule_tags:
                 # Use the first valid schedule tag
                 tag, schedule_info = valid_schedule_tags[0]
                 if len(valid_schedule_tags) > 1:
-                    self.logger.warning(f"Volume {volume_id} has multiple schedule tags, using first valid one: {tag}")
-                
+                    self.logger.warning(
+                        f"Volume {volume_id} has multiple schedule tags, using first valid one: {tag}"
+                    )
+
                 scheduled_resource = ScheduledResource(
                     id=volume_id,
                     type=ResourceType.VOLUME,
@@ -155,7 +170,9 @@ class TagScanner:
                     last_scanned=datetime.now(timezone.utc),
                 )
                 scheduled_resources.append(scheduled_resource)
-                self.logger.debug(f"Found scheduled volume: {volume_name} ({volume_id}) with schedule {tag}")
+                self.logger.debug(
+                    f"Found scheduled volume: {volume_name} ({volume_id}) with schedule {tag}"
+                )
 
         self.logger.info(f"Found {len(scheduled_resources)} scheduled volumes")
         return scheduled_resources
@@ -172,8 +189,12 @@ class TagScanner:
         match = self.TAG_PATTERN.match(tag_to_parse.upper())
         if not match:
             # Check if it looks like a schedule tag but has invalid format
-            if any(prefix in tag_to_parse.upper() for prefix in ["SNAPSHOT-", "BACKUP-"]):
-                self.logger.warning(f"Invalid schedule tag format ignored: '{tag}'. Expected format: {{TYPE}}-{{FREQUENCY}}-{{TIME}}")
+            if any(
+                prefix in tag_to_parse.upper() for prefix in ["SNAPSHOT-", "BACKUP-"]
+            ):
+                self.logger.warning(
+                    f"Invalid schedule tag format ignored: '{tag}'. Expected format: {{TYPE}}-{{FREQUENCY}}-{{TIME}}"
+                )
             return None
 
         try:
@@ -186,10 +207,14 @@ class TagScanner:
                 hour = int(time_str[:2])
                 minute = int(time_str[2:])
                 if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-                    self.logger.warning(f"Invalid time in schedule tag '{tag}': {time_str}. Time must be in HHMM format (00:00-23:59)")
+                    self.logger.warning(
+                        f"Invalid time in schedule tag '{tag}': {time_str}. Time must be in HHMM format (00:00-23:59)"
+                    )
                     return None
             except (ValueError, IndexError):
-                self.logger.warning(f"Invalid time format in schedule tag '{tag}': {time_str}. Expected HHMM format")
+                self.logger.warning(
+                    f"Invalid time format in schedule tag '{tag}': {time_str}. Expected HHMM format"
+                )
                 return None
 
             return ScheduleInfo(
@@ -201,7 +226,7 @@ class TagScanner:
 
     def is_backup_due(self, resource: ScheduledResource) -> bool:
         """Check if a backup is due for the given resource.
-        
+
         Implements defensive backup strategy:
         - If no previous backup exists, create one immediately (defensive backup)
         - Otherwise, follow the regular schedule
@@ -211,7 +236,9 @@ class TagScanner:
 
         # DEFENSIVE BACKUP STRATEGY: If no backup exists, create one immediately
         if resource.last_backup is None:
-            self.logger.info(f"Defensive backup triggered for {resource.name} ({resource.id}) - no previous backup found")
+            self.logger.info(
+                f"Defensive backup triggered for {resource.name} ({resource.id}) - no previous backup found"
+            )
             return True
 
         # Parse the scheduled time
@@ -220,22 +247,24 @@ class TagScanner:
             minute = int(schedule_info.time[2:])
             scheduled_time = time(hour, minute)
         except (ValueError, IndexError):
-            self.logger.warning(f"Invalid time format in schedule for resource {resource.id}: {schedule_info.time}")
+            self.logger.warning(
+                f"Invalid time format in schedule for resource {resource.id}: {schedule_info.time}"
+            )
             return False
 
         # Check frequency-specific conditions
         if schedule_info.frequency == Frequency.DAILY:
             # Daily backups are due every day after the scheduled time
             current_time = now.time()
-            
+
             # Check if we already did a backup today
             last_backup_date = resource.last_backup.date()
             today = now.date()
-            
+
             # If we haven't done a backup today and we're past the scheduled time
             if last_backup_date < today and current_time >= scheduled_time:
                 return True
-            
+
             return False
 
         elif schedule_info.frequency == Frequency.WEEKLY:
@@ -290,44 +319,59 @@ class TagScanner:
     async def scan_all_resources(self) -> List[ScheduledResource]:
         """Scan both instances and volumes for schedule tags."""
         self.logger.info("Starting comprehensive resource scan")
-        
+
         # Scan instances and volumes concurrently
         import asyncio
+
         instance_task = self.scan_instances()
         volume_task = self.scan_volumes()
-        
+
         try:
             instances, volumes = await asyncio.gather(instance_task, volume_task)
             all_resources = instances + volumes
-            
-            self.logger.info(f"Resource scan complete: {len(instances)} instances, {len(volumes)} volumes, {len(all_resources)} total scheduled resources")
+
+            self.logger.info(
+                f"Resource scan complete: {len(instances)} instances, {len(volumes)} volumes, {len(all_resources)} total scheduled resources"
+            )
             return all_resources
-            
+
         except Exception as e:
             self.logger.error(f"Error during resource scan: {e}")
             # Try to get partial results
             try:
                 instances = await instance_task
-                self.logger.warning("Volume scan failed, returning only instance results")
+                self.logger.warning(
+                    "Volume scan failed, returning only instance results"
+                )
                 return instances
-            except:
+            except Exception:
                 try:
                     volumes = await volume_task
-                    self.logger.warning("Instance scan failed, returning only volume results")
+                    self.logger.warning(
+                        "Instance scan failed, returning only volume results"
+                    )
                     return volumes
-                except:
+                except Exception:
                     self.logger.error("Both instance and volume scans failed")
                     return []
 
-    def get_resources_by_schedule_type(self, resources: List[ScheduledResource], operation_type: OperationType) -> List[ScheduledResource]:
+    def get_resources_by_schedule_type(
+        self, resources: List[ScheduledResource], operation_type: OperationType
+    ) -> List[ScheduledResource]:
         """Filter resources by operation type (SNAPSHOT or BACKUP)."""
-        return [r for r in resources if r.schedule_info.operation_type == operation_type]
+        return [
+            r for r in resources if r.schedule_info.operation_type == operation_type
+        ]
 
-    def get_resources_by_frequency(self, resources: List[ScheduledResource], frequency: Frequency) -> List[ScheduledResource]:
+    def get_resources_by_frequency(
+        self, resources: List[ScheduledResource], frequency: Frequency
+    ) -> List[ScheduledResource]:
         """Filter resources by schedule frequency."""
         return [r for r in resources if r.schedule_info.frequency == frequency]
 
-    def get_due_resources(self, resources: List[ScheduledResource]) -> List[ScheduledResource]:
+    def get_due_resources(
+        self, resources: List[ScheduledResource]
+    ) -> List[ScheduledResource]:
         """Get all resources that are due for backup."""
         due_resources = []
         for resource in resources:
@@ -335,9 +379,13 @@ class TagScanner:
                 if self.is_backup_due(resource):
                     due_resources.append(resource)
             except Exception as e:
-                self.logger.warning(f"Error checking if backup is due for resource {resource.id}: {e}")
-        
-        self.logger.info(f"Found {len(due_resources)} resources due for backup out of {len(resources)} total")
+                self.logger.warning(
+                    f"Error checking if backup is due for resource {resource.id}: {e}"
+                )
+
+        self.logger.info(
+            f"Found {len(due_resources)} resources due for backup out of {len(resources)} total"
+        )
         return due_resources
 
     def _looks_like_schedule_tag(self, tag: str) -> bool:
