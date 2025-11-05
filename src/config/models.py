@@ -162,12 +162,7 @@ class BackupConfig:
     max_concurrent_operations: int = 5
     operation_timeout_minutes: int = 60
     
-    # Separate retention for different backup types
-    snapshot_retention_days: int = 7   # Snapshots: shorter retention (fast recovery)
-    backup_retention_days: int = 30    # Backups: longer retention (archival)
-    
-    # Legacy field for backward compatibility
-    default_retention_days: int = 30
+
 
     def __post_init__(self):
         """Validate backup configuration after initialization."""
@@ -195,20 +190,9 @@ class BackupConfig:
                 f"Operation timeout must be positive, got: {self.operation_timeout_minutes}"
             )
 
-        if self.default_retention_days <= 0:
-            raise ValueError(
-                f"Default retention days must be positive, got: {self.default_retention_days}"
-            )
+
         
-        if self.snapshot_retention_days <= 0:
-            raise ValueError(
-                f"Snapshot retention days must be positive, got: {self.snapshot_retention_days}"
-            )
-        
-        if self.backup_retention_days <= 0:
-            raise ValueError(
-                f"Backup retention days must be positive, got: {self.backup_retention_days}"
-            )
+
 
         # Warn about very short full backup intervals
         if self.full_backup_interval_days < 3:

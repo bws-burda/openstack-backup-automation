@@ -415,13 +415,10 @@ class RetentionManager(RetentionManagerInterface):
                     # Fall back to backup-type-specific retention
                     tag_candidates = []
                     for backup in tag_backups:
-                        # Get retention based on backup type
-                        if backup_config:
-                            type_retention_days = self.get_retention_days_for_backup_type(
-                                backup.backup_type, backup_config
-                            )
-                        else:
-                            type_retention_days = policy.retention_days
+                        # Get retention based on backup type from retention policies
+                        type_retention_days = self.get_retention_days_for_backup_type(
+                            backup.backup_type, retention_policies
+                        )
                         
                         if self.calculate_backup_age(backup) > type_retention_days:
                             tag_candidates.append(backup)
@@ -929,13 +926,8 @@ class RetentionManager(RetentionManagerInterface):
             if policy_retention_days:
                 max_retention_days = max(max_retention_days, max(policy_retention_days))
         
-        # Also consider backup_config retention settings
-        if backup_config:
-            max_retention_days = max(
-                max_retention_days,
-                backup_config.snapshot_retention_days,
-                backup_config.backup_retention_days
-            )
+        # No need to consider backup_config retention settings anymore
+        # as we use retention_policies exclusively
         
         all_old_backups = self.state_manager.get_backups_older_than(max_retention_days)
         
@@ -1616,20 +1608,25 @@ class RetentionManager(RetentionManagerInterface):
         """
         return self._get_backups_to_delete_with_retention(backups, retention_days)
 
-    def get_retention_days_for_backup_type(self, backup_type: BackupType, backup_config) -> int:
+    def get_retention_days_for_backup_type(self, backup_type: BackupType, retention_policies: Dict[str, RetentionPolicy]) -> int:
         """Get retention days based on backup type.
         
         Args:
             backup_type: The type of backup (SNAPSHOT, BACKUP, etc.)
-            backup_config: The backup configuration object
+            retention_policies: Dictionary of retention policies
             
         Returns:
             Number of retention days for this backup type
         """
         if backup_type == BackupType.SNAPSHOT:
-            return backup_config.snapshot_retention_days
+            # Use snapshots policy if available, otherwise default
+            policy = retention_policies.get("snapshots", retention_policies.get("default"))
+            return policy.retention_days if policy else 7
         elif backup_type in [BackupType.FULL, BackupType.INCREMENTAL]:
-            return backup_config.backup_retention_days
+            # Use default policy for volume backups
+            policy = retention_policies.get("default")
+            return policy.retention_days if policy else 30
         else:
-            # Fallback to default for unknown types
-            return backup_config.default_retention_days
+            # Fallback to default policy for unknown types
+            policy = retention_policies.get("default")
+            return policy.retention_days if policy else 30

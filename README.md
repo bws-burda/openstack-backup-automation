@@ -106,9 +106,9 @@ openstack:
   application_credential_secret: "your-app-cred-secret"
 
 backup:
-  snapshot_retention_days: 7
-  backup_retention_days: 30
+  full_backup_interval_days: 7
   max_concurrent_operations: 5
+  operation_timeout_minutes: 60
 
 notifications:
   enabled: false  # Set to true to enable email notifications
@@ -119,6 +119,8 @@ retention_policies:
   default:
     retention_days: 30
     keep_last_full_backup: true
+  snapshots:
+    retention_days: 7
 ```
 
 ## Manual Execution

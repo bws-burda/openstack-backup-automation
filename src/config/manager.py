@@ -123,12 +123,7 @@ class ConfigurationManager:
                 operation_timeout_minutes=int(backup_config_data.get(
                     "operation_timeout_minutes", 60
                 )),
-                # Support both new and legacy config formats
-                snapshot_retention_days=int(backup_config_data.get("snapshot_retention_days", 
-                    backup_config_data.get("retention_days", 7))),
-                backup_retention_days=int(backup_config_data.get("backup_retention_days", 
-                    backup_config_data.get("retention_days", 30))),
-                default_retention_days=int(backup_config_data.get("retention_days", 30)),
+
             )
 
             # Parse email settings
@@ -195,7 +190,7 @@ class ConfigurationManager:
                 
                 retention_policies[name] = RetentionPolicy(
                     retention_days=int(policy_data.get(
-                        "retention_days", backup_config.default_retention_days
+                        "retention_days", 30  # Default fallback
                     )),
                     keep_last_full_backup=bool(policy_data.get("keep_last_full_backup", True)),
                 )
