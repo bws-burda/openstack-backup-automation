@@ -247,6 +247,11 @@ class OpenStackClientInterface(ABC):
         pass
 
     @abstractmethod
+    async def get_instance_volumes(self, instance_id: str) -> List[Dict[str, Any]]:
+        """Get all volumes attached to a specific instance."""
+        pass
+
+    @abstractmethod
     async def create_instance_snapshot(self, instance_id: str, name: str) -> str:
         """Create instance snapshot via Nova API."""
         pass

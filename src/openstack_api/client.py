@@ -320,6 +320,83 @@ class OpenStackClient(OpenStackClientInterface):
                 raise APIError(f"Error fetching instances: {e}")
             raise
 
+    async def get_instance_volumes(self, instance_id: str) -> List[Dict[str, Any]]:
+        """Get all volumes attached to a specific instance."""
+        async def _get_instance_volumes():
+            await self._ensure_authenticated()
+            
+            try:
+                # Get the instance details
+                server = self.connection.compute.get_server(instance_id)
+                if not server:
+                    self.logger.warning(f"Instance {instance_id} not found")
+                    return []
+                
+                volumes = []
+                volume_ids = []
+                
+                # Try different ways to get attached volume IDs
+                # Method 1: Check if server has volume_attachments attribute
+                if hasattr(server, 'volume_attachments') and server.volume_attachments:
+                    for attachment in server.volume_attachments:
+                        # Handle different attachment formats
+                        if isinstance(attachment, dict):
+                            vol_id = attachment.get('volumeId') or attachment.get('volume_id') or attachment.get('id')
+                        else:
+                            # Handle attachment objects
+                            vol_id = getattr(attachment, 'volume_id', None) or getattr(attachment, 'volumeId', None) or getattr(attachment, 'id', None)
+                        
+                        if vol_id and isinstance(vol_id, str):
+                            volume_ids.append(vol_id)
+                
+                # Method 2: Check if server has attached_volumes attribute
+                elif hasattr(server, 'attached_volumes') and server.attached_volumes:
+                    for vol_ref in server.attached_volumes:
+                        if isinstance(vol_ref, str):
+                            volume_ids.append(vol_ref)
+                        elif isinstance(vol_ref, dict):
+                            vol_id = vol_ref.get('id') or vol_ref.get('volume_id')
+                            if vol_id:
+                                volume_ids.append(vol_id)
+                
+                # Method 3: Use OpenStack SDK to get volume attachments
+                if not volume_ids:
+                    try:
+                        attachments = list(self.connection.compute.volume_attachments(server=instance_id))
+                        for attachment in attachments:
+                            vol_id = getattr(attachment, 'volume_id', None)
+                            if vol_id:
+                                volume_ids.append(vol_id)
+                    except Exception as e:
+                        self.logger.debug(f"Could not get volume attachments via SDK: {e}")
+                
+                # Get full volume details for each attached volume
+                for volume_id in volume_ids:
+                    try:
+                        volume = self.connection.volume.get_volume(volume_id)
+                        if volume:
+                            volume_dict = volume.to_dict()
+                            # Get tags for the volume
+                            tags = getattr(volume, "tags", []) or []
+                            volume_dict["tags"] = tags
+                            volumes.append(volume_dict)
+                    except Exception as e:
+                        self.logger.warning(f"Could not get details for volume {volume_id}: {e}")
+                        continue
+                
+                self.logger.debug(f"Found {len(volumes)} volumes attached to instance {instance_id}")
+                return volumes
+                
+            except Exception as e:
+                self.logger.error(f"Error getting volumes for instance {instance_id}: {e}")
+                return []
+
+        try:
+            return await self._retry_on_failure(_get_instance_volumes, "get_instance_volumes")
+        except Exception as e:
+            self.logger.error(f"Failed to get volumes for instance {instance_id}: {e}")
+            return []
+
     async def get_volumes_with_tags(
         self, tag_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:

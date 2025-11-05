@@ -1,21 +1,20 @@
 name: Tests
 
-# Temporarily disabled to save GitHub Actions minutes
 # on:
-#   push:
-#     branches: [main, develop]
-#   pull_request:
-#     branches: [main]
+#   workflow_dispatch:  # Only run manually
 
 on:
-  workflow_dispatch:  # Only run manually
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: [3.8, 3.9, "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -29,8 +28,88 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install pytest pytest-cov pytest-asyncio
 
-      - name: Test with pytest
+      - name: Run tests
         run: |
-          pytest tests/ -v
+          python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+
+      - name: Check code formatting with black
+        run: |
+          black --check --diff src/
+
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only --diff src/
+
+  config-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate example configuration
+        run: |
+          # Test that the example config can be loaded
+          python -c "
+          from src.config.manager import ConfigurationManager
+          import tempfile
+          import shutil
+
+          # Copy example config to temporary file
+          shutil.copy('config.yaml.example', 'test-config.yaml')
+
+          # Try to load it (will fail on OpenStack connection, but config should parse)
+          try:
+              manager = ConfigurationManager()
+              config = manager.load_config('test-config.yaml')
+              print('✅ Configuration file syntax is valid')
+          except Exception as e:
+              if 'OpenStack' in str(e) or 'connection' in str(e).lower():
+                  print('✅ Configuration syntax valid (OpenStack connection expected to fail in CI)')
+              else:
+                  raise e
+          finally:
+              import os
+              if os.path.exists('test-config.yaml'):
+                  os.remove('test-config.yaml')
+          "

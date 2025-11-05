@@ -1,5 +1,9 @@
 # OpenStack Backup Automation
 
+![Tests](https://github.com/your-username/openstack-backup-automation/workflows/Tests/badge.svg)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Automated backup and snapshot system for OpenStack resources based on tags.
 
 ## Quick Start (Repository-based)
@@ -54,21 +58,44 @@ python3 -m src.cli.main run --dry-run
 
 ### Instance Tags
 ```bash
-# Daily snapshots at 03:00
+# Daily snapshots at 03:00 (instance only)
 openstack server set --tag "SNAPSHOT-DAILY-0300" my-web-server
 
-# Weekly backups on Monday at 02:00
+# Weekly backups on Monday at 02:00 (instance + ALL attached volumes)
 openstack server set --tag "BACKUP-WEEKLY-0200" my-database-server
 
-# Monthly backups on 1st at 01:00
+# Monthly backups on 1st at 01:00 (instance + ALL attached volumes)
 openstack server set --tag "BACKUP-MONTHLY-0100" my-storage-server
 ```
 
 ### Volume Tags
 ```bash
-# Daily volume backups at 04:00, keep 60 days
+# Daily volume backups at 04:00, keep 60 days (single volume)
 openstack volume set --tag "BACKUP-DAILY-0400-RETAIN60" my-important-volume
+
+# Note: If you tag an instance with BACKUP-*, all attached volumes 
+# are automatically included. Individual volume tags are only needed
+# for standalone volumes or different schedules.
 ```
+
+## Tag Behavior
+
+### Instance Tags
+- **SNAPSHOT-*** tags: Create instance snapshots only (fast, instance-level backup)
+- **BACKUP-*** tags: Create instance snapshot + backup ALL attached volumes (comprehensive backup)
+
+### Volume Tags  
+- **SNAPSHOT-*** tags: Create volume snapshots
+- **BACKUP-*** tags: Create volume backups (full/incremental)
+
+### Automatic Volume Inclusion
+When you tag an instance with a **BACKUP-*** tag, the system automatically:
+1. Creates an instance snapshot
+2. Discovers all volumes attached to that instance  
+3. Creates volume backups for each attached volume with the same schedule
+4. Uses the same retention policy for all components
+
+This provides a simple "one-tag backup solution" for complete server protection.
 
 ## Tag Format
 
@@ -141,6 +168,19 @@ python3 -m src.cli.main health
 
 ## Testing and Debugging
 
+### Run Unit Tests
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Run specific test file
+python -m pytest tests/test_tag_scanner.py -v
+
+# Run with coverage
+python -m pytest tests/ --cov=src --cov-report=html
+```
+
+### Manual Testing
 ```bash
 # Check database contents
 sqlite3 backup.db "SELECT backup_id, resource_id, backup_type, created_at FROM backups ORDER BY created_at;"
@@ -219,6 +259,37 @@ After the first defensive backup, the system follows the normal schedule:
 - ✅ Cron and systemd integration
 - ✅ Comprehensive logging
 - ✅ Health monitoring
+
+## Development
+
+### Running Tests Locally
+```bash
+# Install test dependencies
+pip install pytest pytest-cov pytest-asyncio
+
+# Run all tests
+python -m pytest tests/ -v
+
+# Run with coverage
+python -m pytest tests/ --cov=src --cov-report=html
+```
+
+### Code Quality
+```bash
+# Install linting tools
+pip install flake8 black isort
+
+# Check code formatting
+black --check src/
+isort --check-only src/
+flake8 src/
+```
+
+### Continuous Integration
+This project uses GitHub Actions for automated testing:
+- **Tests**: Run on Python 3.8-3.12 across multiple OS
+- **Linting**: Code style and import sorting checks  
+- **Config Validation**: Ensures example configuration is valid
 
 ## Requirements
 

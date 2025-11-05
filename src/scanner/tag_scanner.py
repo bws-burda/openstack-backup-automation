@@ -58,6 +58,7 @@ class TagScanner:
                 if len(valid_schedule_tags) > 1:
                     self.logger.warning(f"Instance {instance_id} has multiple schedule tags, using first valid one: {tag}")
                 
+                # Add the instance itself
                 scheduled_resource = ScheduledResource(
                     id=instance_id,
                     type=ResourceType.INSTANCE,
@@ -67,6 +68,30 @@ class TagScanner:
                 )
                 scheduled_resources.append(scheduled_resource)
                 self.logger.debug(f"Found scheduled instance: {instance_name} ({instance_id}) with schedule {tag}")
+                
+                # If this is a BACKUP tag, also schedule all attached volumes for backup
+                if schedule_info.operation_type == OperationType.BACKUP:
+                    try:
+                        attached_volumes = await self.openstack_client.get_instance_volumes(instance_id)
+                        for volume in attached_volumes:
+                            volume_id = volume.get("id")
+                            volume_name = volume.get("name", f"volume-{volume_id}")
+                            
+                            if volume_id:
+                                # Create a volume backup schedule with the same timing as the instance
+                                volume_scheduled_resource = ScheduledResource(
+                                    id=volume_id,
+                                    type=ResourceType.VOLUME,
+                                    name=f"{volume_name} (auto-from-{instance_name})",
+                                    schedule_info=schedule_info,  # Same schedule as the instance
+                                    last_scanned=datetime.now(timezone.utc),
+                                )
+                                scheduled_resources.append(volume_scheduled_resource)
+                                self.logger.info(f"Auto-scheduled volume backup: {volume_name} ({volume_id}) from instance {instance_name}")
+                    
+                    except Exception as e:
+                        self.logger.warning(f"Could not get attached volumes for instance {instance_id}: {e}")
+                        # Continue without the volumes - the instance backup will still work
 
         self.logger.info(f"Found {len(scheduled_resources)} scheduled instances")
         return scheduled_resources
