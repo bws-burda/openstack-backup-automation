@@ -12,12 +12,14 @@ cd openstack-backup-automation
 
 ### 2. Install Dependencies
 ```bash
-# Install Python dependencies
-pip3 install -e . --user
-
-# Or create virtual environment
+# Create virtual environment (recommended)
 python3 -m venv venv
 source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install the backup automation package
 pip install -e .
 ```
 
@@ -27,7 +29,7 @@ pip install -e .
 cp config.yaml.example config.yaml
 
 # Edit with your OpenStack credentials
-nano config.yaml
+vi config.yaml
 ```
 
 ### 4. Test Configuration
@@ -172,36 +174,36 @@ For system-wide installation with systemd:
 sudo ./scripts/install.sh --systemd
 ```
 
-## Defensive Backup Strategy
+## Backup Strategy
 
-Das System implementiert eine **defensive Backup-Strategie** für sofortigen Schutz neuer Ressourcen:
+The system implements a **defensive backup strategy** for immediate protection of new resources:
 
-### Sofortige Sicherung bei Tag-Hinzufügung
+### Immediate Backup on Tag Addition
 
-Wenn Sie einer Ressource einen Backup-Tag hinzufügen, wird **nicht** bis zum nächsten geplanten Zeitpunkt gewartet:
+When you add a backup tag to a resource, the system does **not** wait until the next scheduled time:
 
 ```bash
-# Beispiel: Tag um 10:30 Uhr hinzugefügt
+# Example: Tag added at 10:30 AM
 openstack server set --tag "BACKUP-DAILY-0300" my-server
 
-# ✅ 10:45 Uhr: Sofortiges Full-Backup beim nächsten Scan (alle 15 Min)
-# ✅ 03:00 Uhr (nächster Tag): Reguläres Incremental-Backup
-# ✅ 03:00 Uhr (folgende Tage): Weitere tägliche Backups
+# ✅ 10:45 AM: Immediate full backup on next scan (every 15 min)
+# ✅ 03:00 AM (next day): Regular incremental backup
+# ✅ 03:00 AM (following days): Continued daily backups
 ```
 
-### Zeitplan nach der ersten Sicherung
+### Schedule After First Backup
 
-Nach dem ersten defensiven Backup folgt das System dem normalen Zeitplan:
+After the first defensive backup, the system follows the normal schedule:
 
-- **Daily Backups**: Incremental-Backups alle 24 Stunden zur konfigurierten Zeit
-- **Full-Backup-Intervall**: Standardmäßig alle 7 Tage (konfigurierbar)
-- **Retention**: Automatische Bereinigung nach konfigurierten Tagen
+- **Daily Backups**: Incremental backups every 24 hours at configured time
+- **Full Backup Interval**: Default every 7 days (configurable)
+- **Retention**: Automatic cleanup after configured days
 
-### Vorteile
+### Benefits
 
-- **Sofortiger Schutz**: Maximal 15 Minuten Wartezeit nach Tag-Hinzufügung
-- **Kein Datenverlust-Risiko**: Ressourcen sind sofort geschützt
-- **Nahtlose Integration**: Normaler Zeitplan ab der zweiten Sicherung
+- **Immediate Protection**: Maximum 15 minutes wait time after tag addition
+- **No Data Loss Risk**: Resources are protected immediately
+- **Seamless Integration**: Normal schedule from second backup onwards
 
 ## Features
 
@@ -219,7 +221,6 @@ Nach dem ersten defensiven Backup folgt das System dem normalen Zeitplan:
 ## Requirements
 
 - Python 3.8+
-- OpenStack SDK
 - Valid OpenStack credentials
 - SMTP access for notifications (optional)
 

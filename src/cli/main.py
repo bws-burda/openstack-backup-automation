@@ -263,9 +263,9 @@ def health(ctx, output_json, component, export):
                     click.echo("")
                     
                     click.echo("Component Status:")
-                    for component in system_status.components:
-                        comp_symbol = "✓" if component.is_healthy() else "⚠" if component.is_degraded() else "✗"
-                        click.echo(f"  {comp_symbol} {component.name}: {component.status.value} - {component.message}")
+                    for comp in system_status.components:
+                        comp_symbol = "✓" if comp.is_healthy() else "⚠" if comp.is_degraded() else "✗"
+                        click.echo(f"  {comp_symbol} {comp.name}: {comp.status.value} - {comp.message}")
                     
                     # Show recommendations if any
                     report = status_reporter.generate_health_report(system_status)
