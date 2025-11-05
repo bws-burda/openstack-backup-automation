@@ -197,7 +197,6 @@ class ConfigurationManager:
                     retention_days=int(policy_data.get(
                         "retention_days", backup_config.default_retention_days
                     )),
-                    min_backups_to_keep=int(policy_data.get("min_backups_to_keep", 1)),
                     keep_last_full_backup=bool(policy_data.get("keep_last_full_backup", True)),
                 )
 

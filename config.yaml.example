@@ -27,7 +27,7 @@ backup:
   
   # Retention periods by backup type (days)
   # Snapshots: Fast recovery, shorter retention
-  snapshot_retention_days: 7
+  snapshot_retention_days: 1
   
   # Backups: Long-term archival, longer retention  
   backup_retention_days: 30
@@ -43,6 +43,7 @@ backup:
 
 notifications:
   # Email settings for error notifications
+  enabled: false  # Set to true to enable email notifications
   email_recipient: "admin@example.com"
   email_sender: "backup-system@example.com"
   
@@ -60,12 +61,14 @@ scheduling:
   # Check interval for daemon mode (minutes)
   check_interval_minutes: 15
 
-# Optional: Custom retention policies per resource type
-# retention_policies:
-#   instances:
-#     retention_days: 14
-#   volumes:
-#     retention_days: 30
+# Retention policies for different backup types
+retention_policies:
+  default:
+    retention_days: 30
+    keep_last_full_backup: true
+  snapshots:
+    retention_days: 7
+    keep_last_full_backup: false
 
 # =============================================================================
 # TAG EXAMPLES - How to tag your OpenStack resources for automatic backups

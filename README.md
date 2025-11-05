@@ -103,29 +103,46 @@ openstack:
   application_credential_id: "your-app-cred-id"
   application_credential_secret: "your-app-cred-secret"
 
+backup:
+  snapshot_retention_days: 7
+  backup_retention_days: 30
+  max_concurrent_operations: 5
+
 notifications:
+  enabled: false  # Set to true to enable email notifications
   email_recipient: "admin@example.com"
   email_sender: "backup-system@example.com"
 
-backup:
-  retention_days: 30
-  max_concurrent_operations: 5
+retention_policies:
+  default:
+    retention_days: 30
+    keep_last_full_backup: true
 ```
 
 ## Manual Execution
 
 ```bash
+# Validate configuration
+python3 -m src.cli.main config-validate
+
+# Dry run (test mode - shows what would be done)
+python3 -m src.cli.main run --dry-run
+
 # Run backup cycle
 python3 -m src.cli.main run
 
-# Dry run (test mode)
-python3 -m src.cli.main run --dry-run
-
 # Check system health
 python3 -m src.cli.main health
+```
 
-# Validate configuration
-python3 -m src.cli.main config-validate
+## Testing and Debugging
+
+```bash
+# Check database contents
+sqlite3 backup.db "SELECT backup_id, resource_id, backup_type, created_at FROM backups ORDER BY created_at;"
+
+# Clean up cache files
+./cleanup_cache.sh
 ```
 
 ## Monitoring

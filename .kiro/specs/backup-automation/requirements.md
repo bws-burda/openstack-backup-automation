@@ -56,6 +56,18 @@ Eine automatisierte Backup-Lösung für OpenStack, die basierend auf Tags an Ins
 4. THE OpenStack_Backup_System SHALL die Backup-Historie jeder Ressource verfolgen
 5. THE OpenStack_Backup_System SHALL Backup-Metadaten mit Typ (Full/Incremental), Zeitstempel und Quell-Ressource speichern
 
+### Requirement 3.5
+
+**User Story:** Als OpenStack-Administrator möchte ich, dass neu getaggte Ressourcen sofort geschützt werden, damit kein Datenverlust-Risiko zwischen Tagging und nächstem geplanten Backup besteht.
+
+#### Acceptance Criteria
+
+1. WHEN eine Ressource einen Schedule_Tag erhält und noch kein Backup existiert, THE OpenStack_Backup_System SHALL beim nächsten Scan-Zyklus sofort ein Backup erstellen
+2. THE OpenStack_Backup_System SHALL den Scan-Zyklus alle 15 Minuten ausführen
+3. THE OpenStack_Backup_System SHALL nach dem ersten defensiven Backup dem normalen Zeitplan folgen
+4. THE OpenStack_Backup_System SHALL das defensive Backup als Full_Backup erstellen
+5. THE OpenStack_Backup_System SHALL die defensive Backup-Erstellung in den Logs dokumentieren
+
 ### Requirement 4
 
 **User Story:** Als OpenStack-Administrator möchte ich Full- und Incremental-Backup-Strategien konfigurieren können, damit ich Speicherplatz effizient nutzen kann.
