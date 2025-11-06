@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 class TagScanner:
     """Scans OpenStack resources for schedule tags and manages resource discovery."""
 
-    # Tag format: {TYPE}-{FREQUENCY}-{TIME}
+    # Tag format: {TYPE}-{FREQUENCY}-{TIME}[-RETAIN{DAYS}][-FULL{DAYS}]
     TAG_PATTERN = re.compile(
-        r"^(SNAPSHOT|BACKUP)-(DAILY|WEEKLY|MONTHLY|MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)-(\d{4})$"
+        r"^(SNAPSHOT|BACKUP)-(DAILY|WEEKLY|MONTHLY|MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)-(\d{4})(?:-RETAIN(\d+))?(?:-FULL(\d+))?$"
     )
 
     def __init__(self, openstack_client: Any):  # OpenStackClientInterface
@@ -66,20 +66,25 @@ class TagScanner:
                     )
 
                 # Add the instance itself
-                scheduled_resource = ScheduledResource(
-                    id=instance_id,
-                    type=ResourceType.INSTANCE,
-                    name=instance_name,
-                    schedule_info=schedule_info,
-                    last_scanned=datetime.now(timezone.utc),
-                )
-                scheduled_resources.append(scheduled_resource)
-                self.logger.debug(
-                    f"Found scheduled instance: {instance_name} ({instance_id}) with schedule {tag}"
-                )
-
-                # If this is a BACKUP tag, also schedule all attached volumes for backup
-                if schedule_info.operation_type == OperationType.BACKUP:
+                # Handle different operation types
+                if schedule_info.operation_type == OperationType.SNAPSHOT:
+                    # SNAPSHOT tags: Create instance snapshot operation
+                    scheduled_resource = ScheduledResource(
+                        id=instance_id,
+                        type=ResourceType.INSTANCE,
+                        name=instance_name,
+                        schedule_info=schedule_info,
+                        last_scanned=datetime.now(timezone.utc),
+                    )
+                    scheduled_resources.append(scheduled_resource)
+                    self.logger.debug(
+                        f"Found scheduled instance for snapshot: {instance_name} ({instance_id}) with schedule {tag}"
+                    )
+                elif schedule_info.operation_type == OperationType.BACKUP:
+                    # BACKUP tags: Only backup attached volumes, no instance snapshot
+                    self.logger.debug(
+                        f"Found instance with BACKUP tag: {instance_name} ({instance_id}) - will backup attached volumes only"
+                    )
                     try:
                         attached_volumes = (
                             await self.openstack_client.get_instance_volumes(
@@ -108,7 +113,7 @@ class TagScanner:
                         self.logger.warning(
                             f"Could not get attached volumes for instance {instance_id}: {e}"
                         )
-                        # Continue without the volumes - the instance backup will still work
+                        # Continue - BACKUP tag on instance requires volume access
 
         self.logger.info(f"Found {len(scheduled_resources)} scheduled instances")
         return scheduled_resources
@@ -201,6 +206,8 @@ class TagScanner:
             operation_type = OperationType(match.group(1))
             frequency = Frequency(match.group(2))
             time_str = match.group(3)
+            retain_days_str = match.group(4)  # RETAIN suffix
+            full_days_str = match.group(5)  # FULL suffix
 
             # Validate time format (HHMM)
             try:
@@ -217,8 +224,44 @@ class TagScanner:
                 )
                 return None
 
+            # Parse optional retention days
+            retention_days = None
+            if retain_days_str:
+                try:
+                    retention_days = int(retain_days_str)
+                    if retention_days <= 0:
+                        self.logger.warning(
+                            f"Invalid retention days in schedule tag '{tag}': {retain_days_str}. Must be positive"
+                        )
+                        return None
+                except ValueError:
+                    self.logger.warning(
+                        f"Invalid retention days format in schedule tag '{tag}': {retain_days_str}"
+                    )
+                    return None
+
+            # Parse optional full backup interval days
+            full_backup_interval_days = None
+            if full_days_str:
+                try:
+                    full_backup_interval_days = int(full_days_str)
+                    if full_backup_interval_days <= 0:
+                        self.logger.warning(
+                            f"Invalid full backup interval in schedule tag '{tag}': {full_days_str}. Must be positive"
+                        )
+                        return None
+                except ValueError:
+                    self.logger.warning(
+                        f"Invalid full backup interval format in schedule tag '{tag}': {full_days_str}"
+                    )
+                    return None
+
             return ScheduleInfo(
-                operation_type=operation_type, frequency=frequency, time=time_str
+                operation_type=operation_type,
+                frequency=frequency,
+                time=time_str,
+                retention_days=retention_days,
+                full_backup_interval_days=full_backup_interval_days,
             )
         except (ValueError, KeyError) as e:
             self.logger.warning(f"Invalid schedule tag values in '{tag}': {e}")

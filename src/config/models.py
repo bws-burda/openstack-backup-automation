@@ -280,6 +280,20 @@ class MonitoringConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Logging configuration."""
+
+    level: str = "INFO"
+    console_enabled: bool = True
+    file_logging: bool = True
+    log_file: str = "logs/backup-automation.log"
+    max_file_size_mb: int = 100
+    backup_count: int = 5
+    syslog_enabled: bool = False
+    format_type: str = "structured"  # "structured", "simple", "detailed"
+
+
+@dataclass
 class Config:
     """Main configuration object."""
 
@@ -293,13 +307,7 @@ class Config:
     database_path: str = "./backup.db"
 
     # Logging configuration
-    log_level: str = "INFO"
-    log_file: Optional[str] = None
-    log_format: str = "structured"  # "structured", "simple", "detailed"
-    log_max_size_mb: int = 10
-    log_backup_count: int = 5
-    log_syslog_enabled: bool = False
-    log_console_enabled: bool = True
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
     # Monitoring configuration
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
@@ -312,13 +320,13 @@ class Config:
         """Validate main configuration."""
         # Validate log level
         valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        if self.log_level.upper() not in valid_log_levels:
+        if self.logging.level.upper() not in valid_log_levels:
             raise ValueError(
-                f"Invalid log level: {self.log_level}. Must be one of: {valid_log_levels}"
+                f"Invalid log level: {self.logging.level}. Must be one of: {valid_log_levels}"
             )
 
         # Normalize log level to uppercase
-        self.log_level = self.log_level.upper()
+        self.logging.level = self.logging.level.upper()
 
         # Validate database path
         if not self.database_path:
@@ -370,3 +378,39 @@ class Config:
             raise ValueError("Policy must be a RetentionPolicy instance")
 
         self.retention_policies[name] = policy
+
+    # Backward compatibility properties for CLI
+    @property
+    def log_level(self) -> str:
+        """Get log level (backward compatibility)."""
+        return self.logging.level
+
+    @property
+    def log_file(self) -> Optional[str]:
+        """Get log file (backward compatibility)."""
+        return self.logging.log_file if self.logging.file_logging else None
+
+    @property
+    def log_format(self) -> str:
+        """Get log format (backward compatibility)."""
+        return self.logging.format_type
+
+    @property
+    def log_max_size_mb(self) -> int:
+        """Get log max size (backward compatibility)."""
+        return self.logging.max_file_size_mb
+
+    @property
+    def log_backup_count(self) -> int:
+        """Get log backup count (backward compatibility)."""
+        return self.logging.backup_count
+
+    @property
+    def log_syslog_enabled(self) -> bool:
+        """Get syslog enabled (backward compatibility)."""
+        return self.logging.syslog_enabled
+
+    @property
+    def log_console_enabled(self) -> bool:
+        """Get console enabled (backward compatibility)."""
+        return self.logging.console_enabled

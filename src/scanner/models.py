@@ -42,6 +42,8 @@ class ScheduleInfo:
     operation_type: OperationType
     frequency: Frequency
     time: str  # HHMM format
+    retention_days: Optional[int] = None  # Override from RETAIN suffix
+    full_backup_interval_days: Optional[int] = None  # Override from FULL suffix
 
     def __post_init__(self):
         """Validate time format."""
@@ -72,4 +74,14 @@ class ScheduledResource:
     @property
     def schedule_tag(self) -> str:
         """Generate the schedule tag string."""
-        return f"{self.schedule_info.operation_type.value}-{self.schedule_info.frequency.value}-{self.schedule_info.time}"
+        base_tag = f"{self.schedule_info.operation_type.value}-{self.schedule_info.frequency.value}-{self.schedule_info.time}"
+
+        # Add RETAIN suffix if specified
+        if self.schedule_info.retention_days is not None:
+            base_tag += f"-RETAIN{self.schedule_info.retention_days}"
+
+        # Add FULL suffix if specified
+        if self.schedule_info.full_backup_interval_days is not None:
+            base_tag += f"-FULL{self.schedule_info.full_backup_interval_days}"
+
+        return base_tag

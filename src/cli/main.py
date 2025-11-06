@@ -10,21 +10,28 @@ from typing import Optional
 import click
 
 from ..config.manager import ConfigurationManager
+from ..core.context import BackupContext
 from ..factory import create_coordinator_from_config
 from ..logging.config import LoggingConfig
 from ..logging.config import setup_logging as setup_comprehensive_logging
 from ..scheduler.daemon import DaemonRunner
 
 
-def setup_logging(log_level: str = "INFO", config_path: Optional[str] = None):
+def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = None):
     """Configure logging with appropriate level and format."""
     if config_path and os.path.exists(config_path):
         try:
             # Load logging configuration from config file
             config_manager = ConfigurationManager()
             config = config_manager.load_config(config_path)
+
+            # Use CLI log level if provided, otherwise use config
+            effective_log_level = (
+                log_level if log_level is not None else config.log_level
+            )
+
             logging_config = LoggingConfig(
-                level=config.log_level,
+                level=effective_log_level,
                 format_type=config.log_format,
                 log_file=config.log_file,
                 max_file_size_mb=config.log_max_size_mb,
@@ -38,7 +45,8 @@ def setup_logging(log_level: str = "INFO", config_path: Optional[str] = None):
             # Fall back to basic logging if config loading fails
             pass
     # Basic logging setup as fallback
-    level = getattr(logging, log_level.upper(), logging.INFO)
+    fallback_level = log_level if log_level is not None else "INFO"
+    level = getattr(logging, fallback_level.upper(), logging.INFO)
     logging.basicConfig(
         level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -53,9 +61,9 @@ def setup_logging(log_level: str = "INFO", config_path: Optional[str] = None):
 )
 @click.option(
     "--log-level",
-    default="INFO",
+    default=None,
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
-    help="Set logging level",
+    help="Set logging level (overrides config file setting)",
 )
 @click.pass_context
 def cli(ctx, config, log_level):
@@ -84,10 +92,15 @@ def cli(ctx, config, log_level):
     is_flag=True,
     help="Show what would be done without executing operations",
 )
+@click.option(
+    "--test-mode",
+    is_flag=True,
+    help="Ignore timing constraints and execute all policies (for testing)",
+)
 @click.option("--daemon", is_flag=True, help="Run as daemon with continuous monitoring")
 @click.option("--status", is_flag=True, help="Show current system status and exit")
 @click.pass_context
-def run(ctx, dry_run, daemon, status):
+def run(ctx, dry_run, test_mode, daemon, status):
     """Execute backup operations.
     This command runs the backup automation system. By default, it performs
     a single backup cycle (suitable for cron execution). Use --daemon for
@@ -97,6 +110,10 @@ def run(ctx, dry_run, daemon, status):
         openstack-backup-automation run
         # Dry run to see what would be done
         openstack-backup-automation run --dry-run
+        # Test mode - ignore timing, execute all policies
+        openstack-backup-automation run --test-mode
+        # Test mode with dry run - safe testing
+        openstack-backup-automation run --test-mode --dry-run
         # Run as daemon
         openstack-backup-automation run --daemon
         # Check system status
@@ -143,17 +160,51 @@ def run(ctx, dry_run, daemon, status):
         else:
             # Run single backup cycle (cron mode)
             async def run_backup():
-                if dry_run:
-                    click.echo("=== DRY RUN MODE - No operations will be executed ===")
-                results = await coordinator.execute_backup_cycle(dry_run=dry_run)
+                # Create backup context
+                context = BackupContext(test_mode=test_mode, dry_run=dry_run)
+
+                # Show mode information
+                if test_mode or dry_run:
+                    click.echo(f"=== {context.get_mode_description().upper()} ===")
+
+                results = await coordinator.execute_backup_cycle(context=context)
                 click.echo("Backup cycle completed:")
                 click.echo(f"  Operations executed: {results['operations_executed']}")
                 click.echo(f"  Successful: {results['successful_operations']}")
-                click.echo(f"  Failed: {len(results['errors'])}")
+                click.echo(f"  Failed: {results['failed_operations']}")
+
+                # Show system errors if any
                 if results["errors"]:
-                    click.echo("\nErrors encountered:")
+                    click.echo("\nSystem errors encountered:")
                     for error in results["errors"]:
                         click.echo(f"  - {error}", err=True)
+
+                # Show failed operations if any
+                failed_ops = [
+                    r
+                    for r in results.get("operation_results", [])
+                    if not r.is_successful
+                ]
+                if failed_ops:
+                    click.echo("\nFailed operations:")
+                    for op_result in failed_ops:
+                        resource_name = op_result.operation.resource_name or "Unknown"
+                        resource_id = op_result.operation.resource_id
+                        operation_type = op_result.operation.operation_type.value
+
+                        # Shorten error message for readability
+                        error_msg = op_result.error_message
+                        if len(error_msg) > 100:
+                            error_msg = error_msg[:97] + "..."
+
+                        click.echo(
+                            f"  - {resource_name} ({resource_id[:8]}...): {operation_type} failed",
+                            err=True,
+                        )
+                        click.echo(f"    Error: {error_msg}", err=True)
+
+                # Exit with error if there were failures
+                if results["errors"] or results["failed_operations"] > 0:
                     sys.exit(1)
                 else:
                     click.echo("All operations completed successfully.")

@@ -52,14 +52,10 @@ scheduling:
   check_interval_minutes: 15
 
 # Retention policies for different backup types
-# Retention policies for different backup types
 retention_policies:
-  # Default policy for volume backups (BACKUP-* tags)
   default:
     retention_days: 30
     keep_last_full_backup: true
-  
-  # Policy for snapshots (SNAPSHOT-* tags)  
   snapshots:
     retention_days: 7
 
@@ -171,10 +167,6 @@ retention_policies:
 # Database configuration
 database_path: "./backup.db"
 
-# Logging configuration
-log_level: "INFO"
-log_file: "./logs/backup.log"
-
 # ===================================
 # Monitoring Configuration (Optional)
 # ===================================
@@ -204,15 +196,4 @@ logging:
   syslog_enabled: false
   format_type: "structured"  # structured (JSON) or simple
 
-# Notification Configuration
-# =========================
-notifications:
-  email:
-    enabled: false  # Set to true to enable email notifications
-    smtp_server: "smtp.example.com"
-    smtp_port: 587
-    smtp_username: "backup-notifications@example.com"
-    smtp_password: "your-smtp-password"
-    sender: "backup-notifications@example.com"
-    recipient: "admin@example.com"
-    use_tls: true
+

@@ -11,6 +11,7 @@ from .models import (
     BackupConfig,
     Config,
     EmailSettings,
+    LoggingConfig,
     OpenStackCredentials,
     RetentionPolicy,
     SchedulingConfig,
@@ -224,6 +225,19 @@ class ConfigurationManager:
                     ),
                 )
 
+            # Create logging config
+            logging_data = config_data.get("logging", {})
+            logging_config = LoggingConfig(
+                level=logging_data.get("level", "INFO"),
+                console_enabled=logging_data.get("console_enabled", True),
+                file_logging=logging_data.get("file_logging", True),
+                log_file=logging_data.get("log_file", "logs/backup-automation.log"),
+                max_file_size_mb=logging_data.get("max_file_size_mb", 100),
+                backup_count=logging_data.get("backup_count", 5),
+                syslog_enabled=logging_data.get("syslog_enabled", False),
+                format_type=logging_data.get("format_type", "structured"),
+            )
+
             # Create main config object
             self._config = Config(
                 openstack=openstack_creds,
@@ -232,8 +246,7 @@ class ConfigurationManager:
                 scheduling=scheduling_config,
                 retention_policies=retention_policies,
                 database_path=config_data.get("database_path", "./backup.db"),
-                log_level=config_data.get("log_level", "INFO"),
-                log_file=config_data.get("log_file"),
+                logging=logging_config,
             )
 
             # Configuration validation is handled automatically by dataclass __post_init__ methods

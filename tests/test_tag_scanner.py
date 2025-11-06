@@ -39,17 +39,25 @@ class TestTagScanner:
 
     @pytest.mark.asyncio
     async def test_scan_instances_success(self):
-        """Test successful instance scanning."""
+        """Test successful instance scanning with BACKUP tag creates volume operations."""
         mock_instances = [
             {"id": "instance-1", "name": "test-instance", "tags": ["BACKUP-DAILY-0300"]}
         ]
         
+        # Mock attached volumes for the instance
+        mock_volumes = [
+            {"id": "volume-1", "name": "test-volume"}
+        ]
+        
         self.mock_client.get_instances_with_tags.return_value = mock_instances
+        self.mock_client.get_instance_volumes.return_value = mock_volumes
         result = await self.scanner.scan_instances()
         
+        # Should create 1 volume operation (not instance operation)
         assert len(result) == 1
-        assert result[0].id == "instance-1"
-        assert result[0].type == ResourceType.INSTANCE
+        assert result[0].id == "volume-1"  # Volume ID, not instance ID
+        assert result[0].type == ResourceType.VOLUME
+        assert result[0].name == "test-volume (auto-from-test-instance)"
 
     @pytest.mark.asyncio
     async def test_scan_volumes_success(self):

@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 from ..backup.engine import BackupEngine
 from ..backup.models import BackupOperation, BackupType, OperationResult
 from ..config.models import Config
+from ..core.context import BackupContext
 from ..interfaces import (
     NotificationServiceInterface,
     RetentionManagerInterface,
@@ -46,7 +47,9 @@ class ExecutionCoordinator:
         self.notification_service = notification_service
         self.logger = logging.getLogger(__name__)
 
-    async def execute_backup_cycle(self, dry_run: bool = False) -> Dict[str, Any]:
+    async def execute_backup_cycle(
+        self, context: BackupContext = None, dry_run: bool = False
+    ) -> Dict[str, Any]:
         """Execute a complete backup cycle.
 
         This is the main entry point that orchestrates:
@@ -56,20 +59,28 @@ class ExecutionCoordinator:
         4. Notification of results
 
         Args:
-            dry_run: If True, only report what would be done without executing
+            context: Backup execution context (test mode, dry run, etc.)
+            dry_run: If True, only report what would be done without executing (deprecated, use context)
 
         Returns:
             Dictionary with execution results and statistics
         """
+        # Handle backward compatibility and create context if needed
+        if context is None:
+            context = BackupContext(dry_run=dry_run)
+
         cycle_start = datetime.now(timezone.utc)
         self.logger.info(f"Starting backup cycle at {cycle_start}")
+        self.logger.info(f"Execution mode: {context.get_mode_description()}")
 
-        if dry_run:
+        if context.should_simulate_operations():
             self.logger.info("DRY RUN MODE - No actual operations will be performed")
 
         results = {
             "cycle_start": cycle_start,
-            "dry_run": dry_run,
+            "context": context,
+            "dry_run": context.should_simulate_operations(),  # For backward compatibility
+            "test_mode": context.should_ignore_timing(),
             "discovered_resources": 0,
             "due_resources": 0,
             "operations_executed": 0,
@@ -92,7 +103,7 @@ class ExecutionCoordinator:
 
             # Phase 2: Determine Due Resources
             self.logger.info("Phase 2: Determining resources due for backup")
-            due_resources = await self._get_due_resources(discovered_resources)
+            due_resources = await self._get_due_resources(discovered_resources, context)
             results["due_resources"] = len(due_resources)
 
             if not due_resources:
@@ -103,7 +114,7 @@ class ExecutionCoordinator:
                     f"Phase 3: Executing backup operations for {len(due_resources)} resources"
                 )
                 operation_results = await self._execute_backup_operations(
-                    due_resources, dry_run
+                    due_resources, context
                 )
                 results["operation_results"] = operation_results
                 results["operations_executed"] = len(operation_results)
@@ -116,11 +127,11 @@ class ExecutionCoordinator:
 
             # Phase 4: Retention Cleanup
             self.logger.info("Phase 4: Performing retention cleanup")
-            deleted_count = await self._perform_retention_cleanup(dry_run)
+            deleted_count = await self._perform_retention_cleanup(context)
             results["retention_deleted"] = deleted_count
 
             # Phase 5: Send Notifications
-            if not dry_run:
+            if not context.should_simulate_operations():
                 self.logger.info("Phase 5: Sending notifications")
                 await self._send_notifications(results)
 
@@ -130,7 +141,7 @@ class ExecutionCoordinator:
             results["errors"].append(error_msg)
 
             # Send error notification
-            if not dry_run:
+            if not context.should_simulate_operations():
                 try:
                     await self._send_error_notification(
                         e, {"phase": "backup_cycle", "results": results}
@@ -186,11 +197,19 @@ class ExecutionCoordinator:
             raise
 
     async def _get_due_resources(
-        self, resources: List[ScheduledResource]
+        self, resources: List[ScheduledResource], context: BackupContext
     ) -> List[ScheduledResource]:
         """Determine which resources are due for backup."""
         try:
-            due_resources = self.tag_scanner.get_due_resources(resources)
+            if context.should_ignore_timing():
+                # In test mode, all resources are considered due
+                due_resources = resources
+                self.logger.info(
+                    f"TEST MODE: All {len(due_resources)} resources marked as due for backup"
+                )
+            else:
+                # Normal mode: check timing constraints
+                due_resources = self.tag_scanner.get_due_resources(resources)
 
             if due_resources:
                 self.logger.info(
@@ -202,8 +221,11 @@ class ExecutionCoordinator:
                         if resource.last_backup
                         else "Never"
                     )
+                    mode_indicator = (
+                        " (TEST MODE)" if context.should_ignore_timing() else ""
+                    )
                     self.logger.info(
-                        f"  - {resource.name} ({resource.id}): {resource.schedule_tag}, last backup: {last_backup_str}"
+                        f"  - {resource.name} ({resource.id}): {resource.schedule_tag}, last backup: {last_backup_str}{mode_indicator}"
                     )
 
             return due_resources
@@ -213,7 +235,7 @@ class ExecutionCoordinator:
             raise
 
     async def _execute_backup_operations(
-        self, resources: List[ScheduledResource], dry_run: bool
+        self, resources: List[ScheduledResource], context: BackupContext
     ) -> List[OperationResult]:
         """Execute backup operations for due resources."""
         if not resources:
@@ -223,7 +245,7 @@ class ExecutionCoordinator:
         operations = []
         for resource in resources:
             try:
-                operation = self._create_backup_operation(resource)
+                operation = await self._create_backup_operation(resource)
                 operations.append(operation)
             except Exception as e:
                 self.logger.error(
@@ -234,9 +256,10 @@ class ExecutionCoordinator:
             self.logger.warning("No valid backup operations could be created")
             return []
 
-        if dry_run:
+        if context.should_simulate_operations():
+            mode_desc = "DRY RUN" if not context.test_mode else "TEST MODE + DRY RUN"
             self.logger.info(
-                f"DRY RUN: Would execute {len(operations)} backup operations:"
+                f"{mode_desc}: Would execute {len(operations)} backup operations:"
             )
             for op in operations:
                 self.logger.info(
@@ -246,7 +269,9 @@ class ExecutionCoordinator:
 
         # Execute operations in parallel
         try:
-            results = await self.backup_engine.execute_parallel_operations(operations)
+            results = await self.backup_engine.execute_parallel_operations(
+                operations, context
+            )
 
             # Log results
             successful = [r for r in results if r.is_successful]
@@ -268,29 +293,34 @@ class ExecutionCoordinator:
             self.logger.error(f"Failed to execute backup operations: {e}")
             raise
 
-    def _create_backup_operation(self, resource: ScheduledResource) -> BackupOperation:
+    async def _create_backup_operation(
+        self, resource: ScheduledResource
+    ) -> BackupOperation:
         """Create a backup operation from a scheduled resource."""
         # Determine backup type based on operation type and resource type
         if resource.schedule_info.operation_type == OperationType.SNAPSHOT:
+            # SNAPSHOT tags always create snapshots
             backup_type = BackupType.SNAPSHOT
             parent_backup_id = None
         elif resource.schedule_info.operation_type == OperationType.BACKUP:
-            # For backup operations, determine if it should be full or incremental
+            # BACKUP tags only create volume backups
             if resource.type.value == "volume":
-                # Use backup strategy to determine type
+                # Use backup strategy to determine type (full or incremental)
                 backup_type = self.backup_engine.determine_backup_type(resource.id)
                 parent_backup_id = None
                 if backup_type == BackupType.INCREMENTAL:
-                    parent_backup_id = self.backup_engine.get_parent_backup_id(
+                    parent_backup_id = await self.backup_engine.get_parent_backup_id(
                         resource.id, backup_type
                     )
                     if not parent_backup_id:
                         # No valid parent, create full backup instead
                         backup_type = BackupType.FULL
             else:
-                # Instance backups are always snapshots
-                backup_type = BackupType.SNAPSHOT
-                parent_backup_id = None
+                # Instance with BACKUP tag: This should not happen as we only create
+                # volume operations for BACKUP tags on instances
+                raise ValueError(
+                    f"BACKUP tag on instance {resource.id} should only create volume operations, not instance operations"
+                )
         else:
             raise ValueError(
                 f"Unknown operation type: {resource.schedule_info.operation_type}"
@@ -306,11 +336,14 @@ class ExecutionCoordinator:
             timeout_minutes=self.config.backup.operation_timeout_minutes,
         )
 
-    async def _perform_retention_cleanup(self, dry_run: bool) -> int:
+    async def _perform_retention_cleanup(self, context: BackupContext) -> int:
         """Perform retention cleanup of old backups."""
         try:
-            if dry_run:
-                self.logger.info("DRY RUN: Would perform retention cleanup")
+            if context.should_simulate_operations():
+                mode_desc = (
+                    "DRY RUN" if not context.test_mode else "TEST MODE + DRY RUN"
+                )
+                self.logger.info(f"{mode_desc}: Would perform retention cleanup")
                 return 0
 
             cleanup_result = await self.retention_manager.cleanup_expired_backups(

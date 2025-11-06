@@ -1,6 +1,5 @@
 # OpenStack Backup Automation
 
-![Tests](https://github.com/your-username/openstack-backup-automation/workflows/Tests/badge.svg)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -178,6 +177,25 @@ python -m pytest tests/test_tag_scanner.py -v
 ```
 
 ### Manual Testing
+
+#### Test Mode for Development
+```bash
+# Test mode - ignore timing, execute all policies (for testing backup chains)
+python -m src.cli.main run --test-mode
+
+# Test mode with dry run - safe testing without creating actual backups
+python -m src.cli.main run --test-mode --dry-run
+
+# Normal dry run - respect timing, simulate operations
+python -m src.cli.main run --dry-run
+
+# Test backup chains by running multiple times
+python -m src.cli.main run --test-mode  # Run 1: Creates backups
+python -m src.cli.main run --test-mode  # Run 2: Tests incremental logic
+python -m src.cli.main run --test-mode  # Run 3: Tests full backup after interval
+```
+
+#### Database Inspection
 ```bash
 # Check database contents
 sqlite3 backup.db "SELECT backup_id, resource_id, backup_type, created_at FROM backups ORDER BY created_at;"
