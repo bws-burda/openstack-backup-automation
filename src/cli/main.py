@@ -193,7 +193,7 @@ def run(ctx, dry_run, test_mode, daemon, status):
                         operation_type = op_result.operation.operation_type.value
 
                         # Shorten error message for readability
-                        error_msg = op_result.error_message
+                        error_msg = op_result.error_message or "No error message"
                         if len(error_msg) > 100:
                             error_msg = error_msg[:97] + "..."
 

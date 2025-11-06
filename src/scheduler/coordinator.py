@@ -209,6 +209,12 @@ class ExecutionCoordinator:
                 )
             else:
                 # Normal mode: check timing constraints
+                # First, load last_backup times from database for accurate timing
+                for resource in resources:
+                    last_backup = self.state_manager.get_last_backup(resource.id)
+                    if last_backup:
+                        resource.last_backup = last_backup.created_at
+
                 due_resources = self.tag_scanner.get_due_resources(resources)
 
             if due_resources:
@@ -265,13 +271,41 @@ class ExecutionCoordinator:
                 self.logger.info(
                     f"  - {op.resource_name} ({op.resource_id}): {op.operation_type.value}"
                 )
-            return []
+
+            # Create simulated results for proper counting
+            from datetime import datetime, timezone
+
+            from ..backup.models import OperationResult, OperationStatus
+
+            simulated_results = []
+            for op in operations:
+                # Create simulated backup info
+                from ..backup.models import BackupInfo
+
+                simulated_backup_info = BackupInfo(
+                    backup_id=f"dry-run-{op.resource_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+                    resource_id=op.resource_id,
+                    resource_type=op.resource_type,
+                    backup_type=op.operation_type,
+                    parent_backup_id=op.parent_backup_id,
+                    verified=True,  # Assume success in dry run
+                    schedule_tag=op.schedule_tag,
+                )
+
+                result = OperationResult(
+                    operation=op,
+                    status=OperationStatus.COMPLETED,
+                    backup_info=simulated_backup_info,
+                    started_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(timezone.utc),
+                )
+                simulated_results.append(result)
+
+            return simulated_results
 
         # Execute operations in parallel
         try:
-            results = await self.backup_engine.execute_parallel_operations(
-                operations, context
-            )
+            results = await self.backup_engine.execute_parallel_operations(operations)
 
             # Log results
             successful = [r for r in results if r.is_successful]
@@ -309,7 +343,7 @@ class ExecutionCoordinator:
                 backup_type = self.backup_engine.determine_backup_type(resource.id)
                 parent_backup_id = None
                 if backup_type == BackupType.INCREMENTAL:
-                    parent_backup_id = await self.backup_engine.get_parent_backup_id(
+                    parent_backup_id = self.backup_engine.get_parent_backup_id(
                         resource.id, backup_type
                     )
                     if not parent_backup_id:
@@ -416,6 +450,14 @@ class ExecutionCoordinator:
         try:
             # Get resource counts
             all_resources = await self.tag_scanner.scan_all_resources()
+
+            # Load last_backup times from database for accurate due calculation
+            for resource in all_resources:
+                last_backup = self.state_manager.get_last_backup(resource.id)
+                if last_backup:
+                    resource.last_backup = last_backup.created_at
+
+            # For status display, use normal timing logic (respects actual backup times)
             due_resources = self.tag_scanner.get_due_resources(all_resources)
 
             # Get recent backup statistics
@@ -431,8 +473,13 @@ class ExecutionCoordinator:
                 reverse=True,
             )
 
+            # Check system health
+            health_check = await self.validate_system_health()
+            is_healthy = health_check["overall_status"] == "healthy"
+
             status = {
                 "timestamp": datetime.now(timezone.utc),
+                "healthy": is_healthy,
                 "total_scheduled_resources": len(all_resources),
                 "resources_due_for_backup": len(due_resources),
                 "recent_backups_count": len(recent_backups),

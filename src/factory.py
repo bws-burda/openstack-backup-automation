@@ -41,28 +41,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
     # Create notification service (email is optional)
     notification_service = NotificationService(config.notifications)
 
-    # Create monitoring components
-    health_check_config = HealthCheckConfig(
-        enabled=config.monitoring.enabled,
-        check_interval_seconds=config.monitoring.check_interval_seconds,
-        timeout_seconds=config.monitoring.timeout_seconds,
-        database_check_enabled=config.monitoring.database_check_enabled,
-        openstack_check_enabled=config.monitoring.openstack_check_enabled,
-        local_storage_check_enabled=config.monitoring.local_storage_check_enabled,
-        local_storage_threshold_percent=config.monitoring.local_storage_threshold_percent,
-    )
-
-    _ = HealthChecker(
-        config=health_check_config,
-        openstack_client=openstack_client,
-        state_manager=state_manager,
-        database_path=config.database_path,
-    )
-
-    _ = StatusReporter(
-        notification_service=notification_service,
-        state_manager=state_manager,
-    )
+    # Note: HealthChecker and StatusReporter are created on-demand by CLI commands
 
     # Create coordinator
     return ExecutionCoordinator(

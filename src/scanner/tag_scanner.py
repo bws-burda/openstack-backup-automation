@@ -304,6 +304,10 @@ class TagScanner:
             last_backup_date = resource.last_backup.date()
             today = now.date()
 
+            # If we already did a backup today, we're not due
+            if last_backup_date == today:
+                return False
+
             # If we haven't done a backup today and we're past the scheduled time
             if last_backup_date < today and current_time >= scheduled_time:
                 return True
