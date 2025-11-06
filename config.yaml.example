@@ -29,7 +29,7 @@ backup:
   max_concurrent_operations: 5
   
   # Timeout for individual operations (minutes)
-  operation_timeout_minutes: 60
+  operation_timeout_minutes: 1
 
 notifications:
   # Email settings for error notifications

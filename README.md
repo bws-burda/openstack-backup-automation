@@ -175,9 +175,6 @@ python -m pytest tests/ -v
 
 # Run specific test file
 python -m pytest tests/test_tag_scanner.py -v
-
-# Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
 ```
 
 ### Manual Testing
@@ -269,9 +266,6 @@ pip install -r requirements-dev.txt
 
 # Run all tests
 python -m pytest tests/ -v
-
-# Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
 ```
 
 ### Code Quality & Pre-Push Checks
