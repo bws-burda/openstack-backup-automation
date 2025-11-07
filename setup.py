@@ -22,8 +22,7 @@ setup(
     long_description=read_readme() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     url="https://github.com/example/openstack-backup-automation",
-    package_dir={"": "src"},
-    packages=find_packages(where="src"),
+    packages=find_packages(where="."),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: System Administrators",
@@ -42,7 +41,7 @@ setup(
     install_requires=read_requirements() if os.path.exists("requirements.txt") else [],
     entry_points={
         "console_scripts": [
-            "openstack-backup-automation=src.cli.main:main",
+            "openstack-backup-automation=src.cli.main:main"
         ],
     },
     include_package_data=True,
