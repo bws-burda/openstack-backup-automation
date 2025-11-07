@@ -46,8 +46,6 @@ OpenStack Backup Automation Installation Script
 Usage: $0 [OPTIONS]
 
 Options:
-    --systemd           Install as systemd service (recommended)
-    --cron              Install as cron job
     --user USER         System user for the service (default: backup)
     --config-dir DIR    Configuration directory (default: /etc/backup-automation)
     --data-dir DIR      Data directory (default: /var/lib/backup-automation)
@@ -55,30 +53,25 @@ Options:
     --help              Show this help message
 
 Examples:
-    # Install as systemd service (recommended)
-    sudo $0 --systemd
+    # Install as cron job
+    sudo $0
 
-    # Install as cron job with custom user
-    sudo $0 --cron --user mybackup
+    # Install with custom user
+    sudo $0 --user mybackup
 
     # Install with custom directories
-    sudo $0 --systemd --config-dir /opt/backup/config --data-dir /opt/backup/data
+    sudo $0 --config-dir /opt/backup/config --data-dir /opt/backup/data
 
 EOF
 }
 
 # Parse command line arguments
 parse_args() {
+    # Default to cron installation
+    INSTALL_TYPE="cron"
+    
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --systemd)
-                INSTALL_TYPE="systemd"
-                shift
-                ;;
-            --cron)
-                INSTALL_TYPE="cron"
-                shift
-                ;;
             --user)
                 USER="$2"
                 shift 2
@@ -106,12 +99,6 @@ parse_args() {
                 ;;
         esac
     done
-
-    if [[ -z "$INSTALL_TYPE" ]]; then
-        print_error "Please specify installation type: --systemd or --cron"
-        show_usage
-        exit 1
-    fi
 }
 
 # Check system requirements
@@ -136,12 +123,6 @@ check_requirements() {
     # Check pip
     if ! $PYTHON_CMD -m pip --version &> /dev/null; then
         print_error "pip is required but not found. Please install pip for Python 3."
-        exit 1
-    fi
-
-    # Check systemd if installing systemd service
-    if [[ "$INSTALL_TYPE" == "systemd" ]] && ! command -v systemctl &> /dev/null; then
-        print_error "systemd is required for systemd installation but not found."
         exit 1
     fi
 
@@ -192,66 +173,6 @@ install_package() {
     fi
 
     print_info "Package installed successfully"
-}
-
-# Install systemd service
-install_systemd() {
-    print_info "Installing systemd service..."
-
-    # Create service file
-    cat > /etc/systemd/system/backup-automation.service << EOF
-[Unit]
-Description=OpenStack Backup Automation
-Documentation=https://github.com/example/openstack-backup-automation
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-User=$USER
-Group=$USER
-WorkingDirectory=$DATA_DIR
-Environment=CONFIG_FILE=$CONFIG_DIR/config.yaml
-ExecStart=/usr/local/bin/openstack-backup-automation run
-StandardOutput=journal
-StandardError=journal
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=$DATA_DIR
-ReadOnlyPaths=$CONFIG_DIR
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Create timer file
-    cat > /etc/systemd/system/backup-automation.timer << EOF
-[Unit]
-Description=Run OpenStack Backup Automation every 15 minutes
-Documentation=https://github.com/example/openstack-backup-automation
-Requires=backup-automation.service
-
-[Timer]
-OnCalendar=*:0/15
-Persistent=true
-RandomizedDelaySec=60
-
-[Install]
-WantedBy=timers.target
-EOF
-
-    # Set permissions
-    chmod 644 /etc/systemd/system/backup-automation.service
-    chmod 644 /etc/systemd/system/backup-automation.timer
-
-    # Reload systemd
-    systemctl daemon-reload
-
-    print_info "Systemd service and timer installed"
-    print_info "Service: backup-automation.service"
-    print_info "Timer: backup-automation.timer"
 }
 
 # Install cron job
@@ -355,21 +276,10 @@ show_post_install() {
     echo "4. Test the configuration:"
     echo "   openstack-backup-automation config-validate -c $CONFIG_DIR/config.yaml"
     echo
-
-    if [[ "$INSTALL_TYPE" == "systemd" ]]; then
-        echo "5. Enable and start the systemd timer:"
-        echo "   systemctl enable backup-automation.timer"
-        echo "   systemctl start backup-automation.timer"
-        echo
-        echo "6. Check service status:"
-        echo "   systemctl status backup-automation.timer"
-        echo "   systemctl list-timers backup-automation.timer"
-    elif [[ "$INSTALL_TYPE" == "cron" ]]; then
-        echo "5. The cron job is now active and will run every 15 minutes"
-        echo
-        echo "6. Check cron logs:"
-        echo "   tail -f /var/log/syslog | grep backup-automation"
-    fi
+    echo "5. The cron job is now active and will run every 15 minutes"
+    echo
+    echo "6. Check cron logs:"
+    echo "   tail -f /var/log/syslog | grep backup-automation"
 
     echo
     print_info "For more information, see the documentation at:"
@@ -387,13 +297,7 @@ main() {
     create_user
     create_directories
     install_package
-    
-    if [[ "$INSTALL_TYPE" == "systemd" ]]; then
-        install_systemd
-    elif [[ "$INSTALL_TYPE" == "cron" ]]; then
-        install_cron
-    fi
-    
+    install_cron
     create_example_config
     show_post_install
 }

@@ -1,109 +1,86 @@
-# Retention Management - Erweiterte Features
+# Retention Management - Advanced Features
 
-## Übersicht
+## Overview
 
-Das Retention Management System wurde um zwei wichtige Features erweitert:
+This document covers advanced retention management features for power users and system administrators. For basic retention configuration, see the [README](../README.md#tag-format).
 
-1. **🚀 Batch Deletion** - Parallele Löschung für bessere Performance
-2. **🏷️ Tag-basierte Retention Policies** - Flexible Retention-Regeln pro Backup
+The retention management system includes two key advanced features:
+
+1. **🚀 Batch Deletion** - Parallel deletion for improved performance
+2. **🏷️ Policy Priority System** - How retention policies are resolved
 
 ## 🚀 Batch Deletion
 
-### Funktionsweise
+### How It Works
 
-Statt Backups einzeln zu löschen, werden sie in Batches parallel verarbeitet:
+Instead of deleting backups sequentially, they are processed in parallel batches:
 
 ```python
-# Alte Methode (Sequential)
+# Old Method (Sequential)
 for backup in backups:
-    await delete_backup(backup)  # 2s pro Backup
+    await delete_backup(backup)  # 2s per backup
 
-# Neue Methode (Batch)
-await delete_backups_batch(backups, batch_size=5)  # 5 parallel, ~8s pro Batch
+# New Method (Batch)
+await delete_backups_batch(backups, batch_size=5)  # 5 parallel, ~8s per batch
 ```
 
-### Performance-Verbesserung
+### Performance Improvement
 
-| Anzahl Backups | Sequential | Batch (5er) | Verbesserung |
-|----------------|------------|-------------|--------------|
-| 50             | 1:40 min   | 1:20 min    | 20% schneller |
-| 200            | 6:40 min   | 5:20 min    | 25% schneller |
-| 1000           | 33 min     | 27 min      | 30% schneller |
+| Backup Count | Sequential | Batch (5) | Improvement |
+|--------------|------------|-----------|-------------|
+| 50           | 1:40 min   | 1:20 min  | 20% faster  |
+| 200          | 6:40 min   | 5:20 min  | 25% faster  |
+| 1000         | 33 min     | 27 min    | 30% faster  |
 
-### Konfiguration
+### Configuration
 
 ```python
-# Batch Deletion aktivieren
+# Enable batch deletion
 cleanup_result = await retention_manager.cleanup_expired_backups(
     retention_policies=policies,
     use_batch_deletion=True,
-    batch_size=5  # Anzahl paralleler Löschungen
+    batch_size=5  # Number of parallel deletions
 )
 ```
 
-## 🏷️ Tag-basierte Retention Policies
+## 🏷️ Backup Chain Integrity
 
-### Tag-Format
+### Automatic Chain Protection
 
-Retention-Informationen können direkt in Schedule-Tags eingebettet werden:
+The system automatically ensures backup chain integrity:
+
+- **Minimum Retention**: At least 1 backup is always kept
+- **Full Backup Protection**: Full backups are only deleted when no incrementals depend on them
+- **Complete Chains**: Incremental chains remain complete and functional
+- **Orphan Detection**: Orphaned incrementals are automatically identified and cleaned up
+
+### Example
 
 ```
 BACKUP-DAILY-0300-RETAIN90
 │      │     │     │
-│      │     │     └─ 90 Tage Retention
-│      │     └─ Um 03:00 Uhr
-│      └─ Täglich
-└─ Backup-Operation
+│      │     │     └─ 90 days retention
+│      │     └─ At 03:00
+│      └─ Daily
+└─ Backup operation
 
-Chain-Integrität wird automatisch sichergestellt:
-- Mindestens 1 Backup bleibt immer erhalten
-- Full Backups werden nur gelöscht wenn keine Incrementals davon abhängen
-- Incremental Chains bleiben vollständig
+Chain integrity is automatically ensured:
+- At least 1 backup always remains
+- Full backups only deleted when no dependent incrementals exist
+- Incremental chains remain complete
 ```
 
-### Unterstützte Parameter
+## Policy Priority System
 
-| Parameter | Format | Beschreibung | Beispiel |
-|-----------|--------|--------------|----------|
-| Retention Tage | `RETAIN{n}` | Aufbewahrungszeit in Tagen | `RETAIN90` |
+The system applies retention policies in the following order:
 
-**Automatische Chain-Integrität:**
-- Mindestens 1 Backup bleibt immer erhalten
-- Full Backups werden nur gelöscht wenn keine abhängigen Incrementals existieren
-- Incremental Chains bleiben vollständig und funktionsfähig
-- Orphaned Incrementals werden automatisch erkannt und bereinigt
-
-### Beispiele
-
-```yaml
-# Kritische Produktions-DB
-"BACKUP-DAILY-0300-RETAIN90"
-# → 90 Tage Retention, Chain-Integrität automatisch geschützt
-
-# Test-System  
-"BACKUP-WEEKLY-2300-RETAIN7"
-# → 7 Tage Retention, mindestens 1 Backup bleibt immer
-
-# Schnelle Snapshots
-"SNAPSHOT-DAILY-1200-RETAIN3"
-# → 3 Tage Retention (Snapshots beeinflussen keine Backup-Chains)
-
-# Monats-Archive
-"BACKUP-MONTHLY-0100-RETAIN365"
-# → 1 Jahr Retention, Archive-Charakter mit Chain-Schutz
-```
-
-## Policy-Prioritäten
-
-Das System wendet Retention Policies in folgender Reihenfolge an:
-
-### 1. Tag-eingebettete Retention (HÖCHSTE Priorität)
+### 1. Tag-Embedded Retention (HIGHEST Priority)
 ```
 BACKUP-DAILY-0300-RETAIN90
-→ Verwendet 90 Tage Retention mit automatischer Chain-Integrität
+→ Uses 90 days retention with automatic chain integrity
 ```
 
-### 2. Globale Policy-Zuordnung (MITTLERE Priorität)
+### 2. Global Policy Mapping (MEDIUM Priority)
 ```yaml
 retention_policies:
   daily: {retention_days: 30}
@@ -111,10 +88,10 @@ retention_policies:
   instances: {retention_days: 60}
 ```
 
-Matching-Reihenfolge:
-- Nach Backup-Typ: `snapshots`, `full_backups`, `incremental_backups`
-- Nach Resource-Typ: `instances`, `volumes`
-- Nach Schedule-Frequenz: `daily`, `weekly`, `monthly`
+Matching order:
+- By backup type: `snapshots`, `full_backups`, `incremental_backups`
+- By resource type: `instances`, `volumes`
+- By schedule frequency: `daily`, `weekly`, `monthly`
 
 ### 3. Default Policy (FALLBACK)
 ```yaml
@@ -122,47 +99,47 @@ retention_policies:
   default: {retention_days: 30, min_backups_to_keep: 1}
 ```
 
-## Verwendung
+## Usage
 
-### Basis-Verwendung
+### Basic Usage
 ```python
-# Standard Cleanup mit Tag-Policies
+# Standard cleanup with tag policies
 cleanup_result = await retention_manager.cleanup_expired_backups(
     retention_policies=config.retention_policies,
-    use_tag_policies=True,      # Tag-basierte Policies aktivieren
-    use_batch_deletion=True,    # Batch Deletion aktivieren
-    batch_size=5               # 5 parallele Löschungen
+    use_tag_policies=True,      # Enable tag-based policies
+    use_batch_deletion=True,    # Enable batch deletion
+    batch_size=5               # 5 parallel deletions
 )
 ```
 
-### Erweiterte Verwendung
+### Advanced Usage
 ```python
-# Nur Tag-basierte Policies verwenden
+# Use only tag-based policies
 backups_to_delete = retention_manager.get_backups_to_delete_with_tag_policies(
     default_retention_policy=RetentionPolicy(retention_days=30),
     global_retention_policies=config.retention_policies
 )
 
-# Batch Deletion separat verwenden
+# Use batch deletion separately
 batch_result = await retention_manager.delete_backups_batch(
     backups=backups_to_delete,
     batch_size=10
 )
 ```
 
-## Konfiguration
+## Configuration
 
-### Erweiterte YAML-Konfiguration
+### Advanced YAML Configuration
 ```yaml
-# backup-automation.yaml
+# config.yaml
 retention_policies:
-  # Standard-Policy (Fallback)
+  # Default policy (fallback)
   default:
     retention_days: 30
     min_backups_to_keep: 1
     keep_last_full_backup: true
   
-  # Spezielle Policies für verschiedene Anwendungsfälle
+  # Special policies for different use cases
   critical:
     retention_days: 90
     min_backups_to_keep: 5
@@ -189,14 +166,14 @@ retention_policies:
     keep_last_full_backup: true
 
 backup:
-  # Batch Deletion Einstellungen
-  max_concurrent_operations: 5  # Auch für Batch Deletion verwendet
+  # Batch deletion settings
+  max_concurrent_operations: 5  # Also used for batch deletion
   operation_timeout_minutes: 60
 ```
 
 ## Monitoring & Logging
 
-### Cleanup-Ergebnisse
+### Cleanup Results
 ```python
 cleanup_result = {
     "use_tag_policies": True,
@@ -211,7 +188,7 @@ cleanup_result = {
 }
 ```
 
-### Log-Ausgaben
+### Log Output
 ```
 INFO: Evaluating backups for deletion using tag-based retention policies
 DEBUG: Backup backup-123 marked for deletion (policy: 90d retention)
@@ -221,57 +198,57 @@ INFO: Batch deletion completed: 23 successful, 2 failed, 1073741824 bytes freed
 
 ## Best Practices
 
-### 1. Tag-Design
-- **Konsistente Namenskonvention**: Immer `RETAIN{n}-MIN{n}-KEEP_LAST` Format
-- **Sinnvolle Defaults**: Nicht jeder Tag braucht Retention-Info
-- **Dokumentation**: Tag-Bedeutungen dokumentieren
+### 1. Tag Design
+- **Consistent naming**: Always use `RETAIN{n}` format
+- **Sensible defaults**: Not every tag needs retention info
+- **Documentation**: Document tag meanings
 
-### 2. Batch-Größen
-- **Standard**: 5 parallele Löschungen (guter Kompromiss)
-- **Kleine OpenStack**: 2-3 (API-Limits beachten)
-- **Große OpenStack**: 8-10 (bessere Performance)
+### 2. Batch Sizes
+- **Standard**: 5 parallel deletions (good compromise)
+- **Small OpenStack**: 2-3 (respect API limits)
+- **Large OpenStack**: 8-10 (better performance)
 
-### 3. Policy-Hierarchie
-- **Tag-Retention**: Für spezielle Anforderungen
-- **Global-Policies**: Für Standard-Kategorien
-- **Default-Policy**: Konservativ (längere Retention)
+### 3. Policy Hierarchy
+- **Tag retention**: For special requirements
+- **Global policies**: For standard categories
+- **Default policy**: Conservative (longer retention)
 
 ### 4. Monitoring
-- **Cleanup-Reports**: Regelmäßige Berichte über gelöschte Backups
-- **Fehler-Tracking**: Failed Deletions überwachen
-- **Speicher-Monitoring**: Freigegebenen Speicherplatz verfolgen
+- **Cleanup reports**: Regular reports on deleted backups
+- **Error tracking**: Monitor failed deletions
+- **Storage monitoring**: Track freed space
 
 ## Troubleshooting
 
-### Häufige Probleme
+### Common Issues
 
-**Problem**: Batch Deletion schlägt fehl
+**Problem**: Batch deletion fails
 ```
-Lösung: Batch-Größe reduzieren oder Sequential Deletion verwenden
+Solution: Reduce batch size or use sequential deletion
 use_batch_deletion=False
 ```
 
-**Problem**: Tag-Retention wird ignoriert
+**Problem**: Tag retention is ignored
 ```
-Lösung: Tag-Format prüfen, muss exakt RETAIN{n} sein
-Falsch: RETAIN-30, retain30
-Richtig: RETAIN30
-```
-
-**Problem**: Zu viele Backups werden gelöscht
-```
-Lösung: min_backups_to_keep erhöhen oder keep_last_full_backup=true setzen
+Solution: Check tag format, must be exactly RETAIN{n}
+Wrong: RETAIN-30, retain30
+Correct: RETAIN30
 ```
 
-### Debug-Modus
+**Problem**: Too many backups are deleted
+```
+Solution: Increase min_backups_to_keep or set keep_last_full_backup=true
+```
+
+### Debug Mode
 ```python
-# Detailliertes Logging aktivieren
+# Enable detailed logging
 import logging
 logging.getLogger('retention.manager').setLevel(logging.DEBUG)
 
-# Dry-Run für Tests
+# Dry-run for testing
 cleanup_result = await retention_manager.schedule_cleanup_operation(
     retention_policies=policies,
-    dry_run=True  # Nur planen, nicht ausführen
+    dry_run=True  # Only plan, don't execute
 )
 ```

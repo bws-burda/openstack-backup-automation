@@ -143,18 +143,25 @@ class TagScanner:
             if not tags and "metadata" in volume:
                 # Some OpenStack versions store tags in metadata
                 metadata = volume["metadata"]
-                
+
                 # Only accept "backup" as metadata key for simplicity
-                if "backup" in metadata and self._looks_like_schedule_tag(metadata["backup"]):
+                if "backup" in metadata and self._looks_like_schedule_tag(
+                    metadata["backup"]
+                ):
                     tags.append(metadata["backup"])
-                
+
                 # Fallback: check metadata keys and values as before
-                tags.extend([
-                    f"{k}:{v}"
-                    for k, v in metadata.items()
-                    if self._looks_like_schedule_tag(k) or self._looks_like_schedule_tag(v)
-                ])
-                tags.extend([k for k in metadata.keys() if self._looks_like_schedule_tag(k)])
+                tags.extend(
+                    [
+                        f"{k}:{v}"
+                        for k, v in metadata.items()
+                        if self._looks_like_schedule_tag(k)
+                        or self._looks_like_schedule_tag(v)
+                    ]
+                )
+                tags.extend(
+                    [k for k in metadata.keys() if self._looks_like_schedule_tag(k)]
+                )
 
             # Look for schedule tags
             valid_schedule_tags = []

@@ -1,13 +1,14 @@
 #!/bin/bash
-# Setup cron job for OpenStack Backup Automation
-# This script creates a cron job that runs the backup automation every 15 minutes
+# Setup cron job for OpenStack Backup Automation (Repository-based)
+# This script creates a cron job that runs from the repository directory
 
 set -e
 
 # Default values
-USER="backup"
-CONFIG_FILE="/etc/backup-automation/config.yaml"
-DATA_DIR="/var/lib/backup-automation"
+USER="$(whoami)"
+REPO_DIR="$(pwd)"
+CONFIG_FILE="$REPO_DIR/config.yaml"
+INTERVAL=15
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,47 +32,36 @@ print_error() {
 # Show usage information
 show_usage() {
     cat << EOF
-OpenStack Backup Automation Cron Setup Script
+OpenStack Backup Automation Repository Cron Setup Script
 
 Usage: $0 [OPTIONS]
 
 Options:
-    --user USER         System user for the cron job (default: backup)
-    --config FILE       Configuration file path (default: /etc/backup-automation/config.yaml)
-    --data-dir DIR      Data directory (default: /var/lib/backup-automation)
+    --user USER         User for the cron job (default: current user)
     --interval MINUTES  Cron interval in minutes (default: 15)
     --remove            Remove existing cron job
     --help              Show this help message
 
 Examples:
-    # Install cron job with defaults
-    sudo $0
+    # Install cron job for current user
+    $0
 
-    # Install with custom user and interval
-    sudo $0 --user mybackup --interval 30
+    # Install with custom interval
+    $0 --interval 30
 
     # Remove existing cron job
-    sudo $0 --remove
+    $0 --remove
 
 EOF
 }
 
 # Parse command line arguments
-INTERVAL=15
 REMOVE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --user)
             USER="$2"
-            shift 2
-            ;;
-        --config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --data-dir)
-            DATA_DIR="$2"
             shift 2
             ;;
         --interval)
@@ -94,23 +84,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check if running as root
-if [[ $EUID -ne 0 ]]; then
-    print_error "This script must be run as root (use sudo)"
-    exit 1
-fi
-
 # Remove cron job
 if [[ "$REMOVE" == true ]]; then
     print_info "Removing OpenStack Backup Automation cron job..."
     
-    if [[ -f /etc/cron.d/backup-automation ]]; then
-        rm /etc/cron.d/backup-automation
-        print_info "Cron job removed successfully"
-    else
-        print_warn "Cron job not found"
-    fi
+    # Remove from user's crontab
+    (crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true) | crontab -
     
+    print_info "Cron job removed successfully"
     exit 0
 fi
 
@@ -120,30 +101,32 @@ if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || [[ "$INTERVAL" -lt 1 ]] || [[ "$INTERVAL" 
     exit 1
 fi
 
-# Check if user exists
-if ! id "$USER" &>/dev/null; then
-    print_error "User '$USER' does not exist. Please create the user first or specify an existing user."
+# Check if we're in the repository directory
+if [[ ! -f "setup.py" ]] || [[ ! -f "config.yaml.example" ]]; then
+    print_error "Please run this script from the openstack-backup-automation repository directory."
     exit 1
 fi
 
 # Check if configuration file exists
 if [[ ! -f "$CONFIG_FILE" ]]; then
     print_warn "Configuration file not found: $CONFIG_FILE"
-    print_warn "Make sure to create the configuration file before the cron job runs."
+    print_info "Creating configuration from example..."
+    
+    if [[ -f "config.yaml.example" ]]; then
+        cp config.yaml.example config.yaml
+        print_info "Configuration template created: $CONFIG_FILE"
+        print_warn "Please edit config.yaml with your OpenStack credentials before running backups!"
+    else
+        print_error "config.yaml.example not found. Cannot create configuration."
+        exit 1
+    fi
 fi
 
-# Check if data directory exists
-if [[ ! -d "$DATA_DIR" ]]; then
-    print_warn "Data directory not found: $DATA_DIR"
-    print_warn "Make sure the data directory exists and is writable by user '$USER'."
+# Check if Python package is installed
+if ! python3 -c "import src.cli.main" 2>/dev/null; then
+    print_info "Installing Python package in development mode..."
+    python3 -m pip install -e . --user
 fi
-
-# Create cron job
-print_info "Installing OpenStack Backup Automation cron job..."
-print_info "User: $USER"
-print_info "Interval: every $INTERVAL minutes"
-print_info "Config: $CONFIG_FILE"
-print_info "Data directory: $DATA_DIR"
 
 # Calculate cron expression
 if [[ "$INTERVAL" == "15" ]]; then
@@ -156,35 +139,33 @@ else
     CRON_TIME="*/$INTERVAL * * * *"
 fi
 
-# Create cron file
-cat > /etc/cron.d/backup-automation << EOF
-# OpenStack Backup Automation
-# Runs every $INTERVAL minutes
-# Generated on $(date)
+print_info "Installing OpenStack Backup Automation cron job..."
+print_info "User: $USER"
+print_info "Interval: every $INTERVAL minutes"
+print_info "Repository: $REPO_DIR"
+print_info "Config: $CONFIG_FILE"
 
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# Create cron entry
+CRON_ENTRY="$CRON_TIME cd $REPO_DIR && python3 -m src.cli.main run -c $CONFIG_FILE >/dev/null 2>&1"
 
-$CRON_TIME $USER cd $DATA_DIR && CONFIG_FILE=$CONFIG_FILE /usr/local/bin/openstack-backup-automation run >/dev/null 2>&1
-EOF
+# Add to user's crontab
+(crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true; echo "# OpenStack Backup Automation"; echo "$CRON_ENTRY") | crontab -
 
-# Set proper permissions
-chmod 644 /etc/cron.d/backup-automation
-
-print_info "Cron job installed successfully: /etc/cron.d/backup-automation"
-print_info "The backup automation will run every $INTERVAL minutes as user '$USER'"
+print_info "Cron job installed successfully!"
+print_info "The backup automation will run every $INTERVAL minutes"
 
 # Show next steps
 echo
 print_info "Next steps:"
-echo "1. Ensure the configuration file exists and is properly configured:"
-echo "   $CONFIG_FILE"
+echo "1. Edit the configuration file:"
+echo "   nano $CONFIG_FILE"
 echo
 echo "2. Test the backup automation manually:"
-echo "   sudo -u $USER CONFIG_FILE=$CONFIG_FILE openstack-backup-automation run --dry-run"
+echo "   cd $REPO_DIR"
+echo "   python3 -m src.cli.main run --dry-run"
 echo
 echo "3. Monitor cron execution:"
 echo "   tail -f /var/log/syslog | grep CRON"
 echo
-echo "4. Check backup automation logs:"
-echo "   journalctl -f -t openstack-backup-automation"
+echo "4. View current crontab:"
+echo "   crontab -l"

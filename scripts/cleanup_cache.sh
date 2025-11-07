@@ -1,7 +1,13 @@
 #!/bin/bash
 # Cleanup script for Python cache files
 
-echo "🧹 Cleaning up Python cache files..."
+# Get the repository root directory (parent of scripts/)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "🧹 Cleaning up Python cache files in: $REPO_ROOT"
+
+# Change to repository root
+cd "$REPO_ROOT" || exit 1
 
 # Remove all __pycache__ directories
 find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

@@ -77,8 +77,8 @@ def cli(ctx, config, log_level):
         openstack-backup-automation run --daemon
         # Validate configuration file
         openstack-backup-automation config-validate
-        # Install systemd service
-        sudo openstack-backup-automation install --systemd
+        # Install as cron job
+        sudo openstack-backup-automation install
     """
     ctx.ensure_object(dict)
     ctx.obj["config"] = config
@@ -521,8 +521,6 @@ monitoring:
 
 
 @cli.command()
-@click.option("--systemd", is_flag=True, help="Install systemd service and timer")
-@click.option("--cron", is_flag=True, help="Install cron job")
 @click.option(
     "--user", default="backup", help="System user for the service (default: backup)"
 )
@@ -537,22 +535,19 @@ monitoring:
     help="Data directory for database and logs (default: /var/lib/backup-automation)",
 )
 @click.pass_context
-def install(ctx, systemd, cron, user, config_dir, data_dir):
-    """Install OpenStack Backup Automation as a system service.
-    This command helps you install the backup automation system as either
-    a systemd service or cron job. It creates necessary directories, users,
-    and configuration files.
+def install(ctx, user, config_dir, data_dir):
+    """Install OpenStack Backup Automation as a cron job.
+
+    This command helps you install the backup automation system as a cron job.
+    It creates necessary directories, users, and configuration files.
+
     Examples:
-        # Install as systemd service (recommended)
-        sudo openstack-backup-automation install --systemd
-        # Install as cron job
-        sudo openstack-backup-automation install --cron
+        # Install with default settings
+        sudo openstack-backup-automation install
+
         # Install with custom user and directories
-        sudo openstack-backup-automation install --systemd --user mybackup --config-dir /opt/backup/config
+        sudo openstack-backup-automation install --user mybackup --config-dir /opt/backup/config
     """
-    if not systemd and not cron:
-        click.echo("Error: Please specify either --systemd or --cron", err=True)
-        sys.exit(1)
     if os.geteuid() != 0:
         click.echo(
             "Error: Installation requires root privileges. Please run with sudo.",
@@ -587,82 +582,19 @@ def install(ctx, systemd, cron, user, config_dir, data_dir):
             shutil.chown(directory, user, user)
             os.chmod(directory, 0o750)
             click.echo(f"✓ Created directory: {directory}")
-        if systemd:
-            install_systemd_service(user, config_dir, data_dir)
-        if cron:
-            install_cron_job(user, config_dir, data_dir)
+
+        install_cron_job(user, config_dir, data_dir)
+
         click.echo("\n✓ Installation completed successfully!")
         click.echo("Next steps:")
         click.echo(f"1. Copy your configuration to: {config_dir}/config.yaml")
         click.echo(
             f"2. Ensure the configuration is owned by {user}:root with 640 permissions"
         )
-        if systemd:
-            click.echo(
-                "3. Enable and start the service: systemctl enable --now backup-automation.timer"
-            )
-        if cron:
-            click.echo(
-                "3. The cron job has been installed and will run every 15 minutes"
-            )
+        click.echo("3. The cron job has been installed and will run every 15 minutes")
     except Exception as e:
         click.echo(f"Installation failed: {e}", err=True)
         sys.exit(1)
-
-
-def install_systemd_service(user, config_dir, data_dir):
-    """Install systemd service and timer files."""
-    service_content = f"""[Unit]
-Description=OpenStack Backup Automation
-Documentation=https://github.com/example/openstack-backup-automation
-After=network-online.target
-Wants=network-online.target
-[Service]
-Type=oneshot
-User={user}
-Group={user}
-WorkingDirectory={data_dir}
-Environment=CONFIG_FILE={config_dir}/config.yaml
-ExecStart=/usr/local/bin/openstack-backup-automation run
-StandardOutput=journal
-StandardError=journal
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths={data_dir}
-ReadOnlyPaths={config_dir}
-NoNewPrivileges=true
-[Install]
-WantedBy=multi-user.target
-"""
-    timer_content = """[Unit]
-Description=Run OpenStack Backup Automation every 15 minutes
-Documentation=https://github.com/example/openstack-backup-automation
-Requires=backup-automation.service
-[Timer]
-OnCalendar=*:0/15
-Persistent=true
-RandomizedDelaySec=60
-[Install]
-WantedBy=timers.target
-"""
-    # Write service file
-    service_path = "/etc/systemd/system/backup-automation.service"
-    with open(service_path, "w") as f:
-        f.write(service_content)
-    os.chmod(service_path, 0o644)
-    # Write timer file
-    timer_path = "/etc/systemd/system/backup-automation.timer"
-    with open(timer_path, "w") as f:
-        f.write(timer_content)
-    os.chmod(timer_path, 0o644)
-    # Reload systemd
-    import subprocess
-
-    subprocess.run(["systemctl", "daemon-reload"], check=True)
-    click.echo("✓ Systemd service and timer installed")
-    click.echo("  Service: backup-automation.service")
-    click.echo("  Timer: backup-automation.timer")
 
 
 def install_cron_job(user, config_dir, data_dir):

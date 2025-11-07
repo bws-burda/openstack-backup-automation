@@ -47,10 +47,10 @@ python3 -m src.cli.main run --dry-run
 ### 5. Setup Automatic Execution
 ```bash
 # Setup cron job (runs every 15 minutes)
-./scripts/setup-repo-cron.sh
+./scripts/setup-cron.sh
 
 # Or with custom interval
-./scripts/setup-repo-cron.sh --interval 30
+./scripts/setup-cron.sh --interval 30
 ```
 
 ## Tag Your Resources
@@ -205,7 +205,7 @@ python -m src.cli.main run --test-mode  # Run 3: Tests full backup after interva
 sqlite3 backup.db "SELECT backup_id, resource_id, backup_type, created_at FROM backups ORDER BY created_at;"
 
 # Clean up cache files
-./cleanup_cache.sh
+./scripts/cleanup_cache.sh
 ```
 
 ## Monitoring
@@ -224,15 +224,15 @@ tail -f logs/backup.log
 ## Remove Cron Job
 
 ```bash
-./scripts/setup-repo-cron.sh --remove
+./scripts/setup-cron.sh --remove
 ```
 
 ## System Installation (Alternative)
 
-For system-wide installation with systemd:
+For system-wide installation:
 
 ```bash
-sudo ./scripts/install.sh --systemd
+sudo ./scripts/install.sh
 ```
 
 ## Backup Strategy
@@ -275,9 +275,13 @@ After the first defensive backup, the system follows the normal schedule:
 - ✅ Configurable retention policies
 - ✅ Parallel operation execution
 - ✅ Email notifications on errors
-- ✅ Cron and systemd integration
+- ✅ Cron integration
 - ✅ Comprehensive logging
 - ✅ Health monitoring
+
+## Advanced Features
+
+For detailed information about advanced retention management features including batch deletion, policy priorities, and backup chain integrity, see [docs/retention-management.md](docs/retention-management.md).
 
 ## Development
 
@@ -348,6 +352,208 @@ This project uses GitHub Actions for automated testing:
 - **Tests**: Run on Python 3.8-3.12 across multiple OS
 - **Linting**: Code style and import sorting checks  
 - **Config Validation**: Ensures example configuration is valid
+
+## Real-World Usage Examples
+
+### Scenario 1: Production Database with Compliance Requirements
+```bash
+# Daily backups at 2 AM, keep for 1 year, full backup every 7 days
+openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL7" prod-database-server
+
+# Result: Complete server + all volumes backed up daily
+# - Full backup every 7 days
+# - Incremental backups on other days
+# - Retention: 365 days
+```
+
+### Scenario 2: Development Environment with Cost Optimization
+```bash
+# Weekly snapshots on Sunday at 1 AM, keep only 2 weeks
+openstack server set --tag "SNAPSHOT-SUNDAY-0100-RETAIN14" dev-environment
+
+# Result: Fast snapshots, minimal storage cost
+# - Only runs once per week
+# - Short retention saves space
+# - Quick restore capability
+```
+
+### Scenario 3: Mixed Backup Strategy for Web Application
+```bash
+# Web servers: Daily snapshots (fast recovery)
+openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-01
+openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-02
+
+# Database server: Daily backups (data integrity)
+openstack server set --tag "BACKUP-DAILY-0200-RETAIN90-FULL7" database-server
+
+# File storage: Weekly backups (large data, less frequent changes)
+openstack volume set --property backup="BACKUP-SATURDAY-0000-RETAIN180-FULL1" file-storage-volume
+
+# Result: Optimized strategy per component
+# - Web servers: Fast recovery with snapshots
+# - Database: Comprehensive backups with incrementals
+# - Storage: Weekly full backups for large data
+```
+
+### Scenario 4: Selective Volume Backup
+```bash
+# Instance with multiple volumes, only backup specific volumes
+# Instance: NO TAG (not backed up)
+# Root disk: NO TAG (not backed up)
+# Data disk 1: Snapshot daily
+openstack volume set --property backup="SNAPSHOT-DAILY-0300" data-disk-1-id
+
+# Data disk 2: Full backup daily
+openstack volume set --property backup="BACKUP-DAILY-0400-RETAIN60" data-disk-2-id
+
+# Result: Granular control over what gets backed up
+# - Only critical data volumes are backed up
+# - Different strategies per volume
+# - Cost optimization by excluding unnecessary volumes
+```
+
+### Scenario 5: High-Frequency Database with Short Retention
+```bash
+# Database with frequent changes, full backup every 3 days
+openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-frequency-db
+
+# Result: Optimized for frequently changing data
+# - Daily backups capture all changes
+# - Full backup every 3 days (faster restore)
+# - 90-day retention for compliance
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Authentication Failures
+
+**Problem**: `Authentication failed: Invalid credentials`
+
+**Solutions**:
+```bash
+# Verify credentials
+openstack-backup-automation config-validate
+
+# Test OpenStack CLI directly
+openstack --os-cloud default server list
+
+# Check application credential
+openstack application credential show <credential-id>
+
+# Verify config.yaml has correct values
+cat config.yaml | grep -A 5 "openstack:"
+```
+
+#### 2. No Backups Being Created
+
+**Problem**: System runs but no backups are created
+
+**Solutions**:
+```bash
+# Check if resources are tagged correctly
+openstack server list --long | grep -i backup
+openstack volume list --long
+
+# Verify resources are discovered
+python3 -m src.cli.main run --status
+
+# Check if backups are due (timing)
+python3 -m src.cli.main run --dry-run
+
+# Force execution ignoring timing
+python3 -m src.cli.main run --test-mode --dry-run
+```
+
+#### 3. Volume Metadata Not Working
+
+**Problem**: Volume backups not triggered despite metadata
+
+**Solutions**:
+```bash
+# Verify metadata is set correctly (use "backup" as key)
+openstack volume show <volume-id> -f json | grep -A 5 metadata
+
+# Correct format:
+openstack volume set --property backup="BACKUP-DAILY-0300" <volume-id>
+
+# NOT supported (wrong key):
+openstack volume set --property schedule="BACKUP-DAILY-0300" <volume-id>
+```
+
+#### 4. Backup Verification Timeout
+
+**Problem**: `Backup verification timed out`
+
+**Solutions**:
+```bash
+# Increase timeout in config.yaml
+backup:
+  operation_timeout_minutes: 120  # Increase from 60
+
+# Check OpenStack backup status manually
+openstack volume backup list --status creating
+
+# Check system load
+openstack quota show
+```
+
+#### 5. Database Locked Errors
+
+**Problem**: `database is locked`
+
+**Solutions**:
+```bash
+# Check if another instance is running
+ps aux | grep backup-automation
+
+# Stop any running instances
+pkill -f backup-automation
+
+# Clean up stale lock files
+rm -f backup.db-journal
+
+# Restart the service
+systemctl restart backup-automation.timer
+```
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+
+```yaml
+# config.yaml
+logging:
+  level: "DEBUG"  # Change from INFO to DEBUG
+  console_enabled: true
+  file_logging: true
+```
+
+Then check logs:
+```bash
+# View logs
+tail -f logs/backup-automation.log
+
+# Filter for errors
+grep ERROR logs/backup-automation.log
+
+# Check specific resource
+grep "resource-id" logs/backup-automation.log
+```
+
+### Getting Help
+
+If you encounter issues:
+
+1. **Check logs** for error messages
+2. **Validate configuration** with `config-validate` command
+3. **Test connectivity** to OpenStack APIs
+4. **Review permissions** for files and directories
+5. **Check resource tags** are properly formatted
+6. **Verify timing** with `--dry-run` mode
+
+For additional support, check the project documentation or open an issue on GitHub.
 
 ## Requirements
 

@@ -42,6 +42,7 @@ nosetests.xml
 *.swp
 *.swo
 *~
+.kiro
 
 # OS
 .DS_Store
@@ -61,5 +62,3 @@ logs/
 
 # Configuration files (keep examples, ignore actual configs)
 config.yaml
-backup-automation.yaml
-config/backup-automation.yaml

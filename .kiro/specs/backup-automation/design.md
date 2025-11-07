@@ -43,7 +43,7 @@ graph TB
 - Bewährte, zuverlässige Technologie
 - Einfache Integration in bestehende Systeme
 - Keine zusätzlichen Daemon-Prozesse erforderlich
-- Systemd-Timer als moderne Alternative verfügbar
+- Einfaches Setup und Wartung
 
 **Implementierung:**
 - Hauptskript läuft alle 15 Minuten via Cron
@@ -324,13 +324,13 @@ openstack-backup-automation/
 │   │   ├── retention/
 │   │   ├── notification/
 │   │   └── cli/
-├── config/
-│   ├── backup-automation.yaml.example
-│   └── systemd/
-│       └── backup-automation.service
+├── config.yaml.example
 ├── scripts/
 │   ├── install.sh
-│   └── setup-cron.sh
+│   ├── setup-cron.sh
+│   ├── validate-config.sh
+│   ├── cleanup_cache.sh
+│   └── pre-push-checks.sh
 ├── tests/
 ├── docs/
 └── requirements.txt
@@ -353,35 +353,13 @@ openstack-backup-automation/
 
 ### Service Integration
 
-**Systemd Service:**
-```ini
-[Unit]
-Description=OpenStack Backup Automation
-After=network.target
+**Cron Job:**
+```bash
+# Repository-based (user crontab)
+*/15 * * * * cd /path/to/repo && python3 -m src.cli.main run -c config.yaml
 
-[Service]
-Type=oneshot
-User=backup
-ExecStart=/usr/bin/openstack-backup-automation run
-WorkingDirectory=/var/lib/backup-automation
-Environment=CONFIG_FILE=/etc/backup-automation/config.yaml
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Systemd Timer (für Cron-Ersatz):**
-```ini
-[Unit]
-Description=Run OpenStack Backup Automation every 15 minutes
-Requires=backup-automation.service
-
-[Timer]
-OnCalendar=*:0/15
-Persistent=true
-
-[Install]
-WantedBy=timers.target
+# System-wide (/etc/cron.d/backup-automation)
+*/15 * * * * backup cd /var/lib/backup-automation && CONFIG_FILE=/etc/backup-automation/config.yaml /usr/local/bin/openstack-backup-automation run
 ```
 
 ## Security Considerations
