@@ -38,10 +38,10 @@ vi config.yaml
 ### 4. Test Configuration
 ```bash
 # Validate configuration
-python3 -m src.cli.main config-validate
+openstack-backup-automation config-validate
 
 # Test run (dry-run)
-python3 -m src.cli.main run --dry-run
+openstack-backup-automation run --dry-run
 ```
 
 ### 5. Setup Automatic Execution
@@ -157,16 +157,16 @@ retention_policies:
 
 ```bash
 # Validate configuration
-python3 -m src.cli.main config-validate
+openstack-backup-automation config-validate
 
 # Dry run (test mode - shows what would be done)
-python3 -m src.cli.main run --dry-run
+openstack-backup-automation run --dry-run
 
 # Run backup cycle
-python3 -m src.cli.main run
+openstack-backup-automation run
 
 # Check system health
-python3 -m src.cli.main health
+openstack-backup-automation health
 ```
 
 ## Testing and Debugging
@@ -185,18 +185,18 @@ python -m pytest tests/test_tag_scanner.py -v
 #### Test Mode for Development
 ```bash
 # Test mode - ignore timing, execute all policies (for testing backup chains)
-python -m src.cli.main run --test-mode
+openstack-backup-automation run --test-mode
 
 # Test mode with dry run - safe testing without creating actual backups
-python -m src.cli.main run --test-mode --dry-run
+openstack-backup-automation run --test-mode --dry-run
 
 # Normal dry run - respect timing, simulate operations
-python -m src.cli.main run --dry-run
+openstack-backup-automation run --dry-run
 
 # Test backup chains by running multiple times
-python -m src.cli.main run --test-mode  # Run 1: Creates backups
-python -m src.cli.main run --test-mode  # Run 2: Tests incremental logic
-python -m src.cli.main run --test-mode  # Run 3: Tests full backup after interval
+openstack-backup-automation run --test-mode  # Run 1: Creates backups
+openstack-backup-automation run --test-mode  # Run 2: Tests incremental logic
+openstack-backup-automation run --test-mode  # Run 3: Tests full backup after interval
 ```
 
 #### Database Inspection
@@ -457,13 +457,13 @@ openstack server list --long | grep -i backup
 openstack volume list --long
 
 # Verify resources are discovered
-python3 -m src.cli.main run --status
+openstack-backup-automation run --status
 
 # Check if backups are due (timing)
-python3 -m src.cli.main run --dry-run
+openstack-backup-automation run --dry-run
 
 # Force execution ignoring timing
-python3 -m src.cli.main run --test-mode --dry-run
+openstack-backup-automation run --test-mode --dry-run
 ```
 
 #### 3. Volume Metadata Not Working

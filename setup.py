@@ -15,7 +15,7 @@ def read_requirements():
 
 setup(
     name="openstack-backup-automation",
-    version="0.1.0",
+    version="1.0.0",
     author="OpenStack Backup Automation Team",
     author_email="admin@example.com",
     description="Automated backup and snapshot system for OpenStack resources",
@@ -42,7 +42,7 @@ setup(
     install_requires=read_requirements() if os.path.exists("requirements.txt") else [],
     entry_points={
         "console_scripts": [
-            "openstack-backup-automation=cli.main:main",
+            "openstack-backup-automation=src.cli.main:main",
         ],
     },
     include_package_data=True,
