@@ -87,22 +87,22 @@ retention_policies:
 
 # 2. BASIC BACKUPS (comprehensive, for volumes):
 # openstack server set --tag "BACKUP-DAILY-0200" database-server
-# openstack volume set --tag "BACKUP-WEEKLY-0100" storage-volume
+# openstack volume set --property backup="BACKUP-WEEKLY-0100" storage-volume  # Note: volumes use --property backup=
 # openstack server set --tag "BACKUP-MONTHLY-0000" archive-server
 
 # 3. CUSTOM RETENTION (override config retention_days):
 # openstack server set --tag "BACKUP-DAILY-0200-RETAIN90" critical-database
 # openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN7" temp-server
-# openstack volume set --tag "BACKUP-WEEKLY-0100-RETAIN180" important-data
+# openstack volume set --property backup="BACKUP-WEEKLY-0100-RETAIN180" important-data
 
 # 4. CUSTOM FULL BACKUP INTERVAL (override config full_backup_interval_days):
 # openstack server set --tag "BACKUP-DAILY-0200-FULL3" high-change-server
-# openstack volume set --tag "BACKUP-DAILY-0300-FULL14" stable-volume
+# openstack volume set --property backup="BACKUP-DAILY-0300-FULL14" stable-volume
 # openstack server set --tag "BACKUP-WEEKLY-0100-FULL1" weekly-full-server
 
 # 5. COMBINED CUSTOM SETTINGS (retention + full backup interval):
 # openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL30" compliance-server
-# openstack volume set --tag "BACKUP-DAILY-0300-RETAIN60-FULL7" production-db
+# openstack volume set --property backup="BACKUP-DAILY-0300-RETAIN60-FULL7" production-db
 # openstack server set --tag "BACKUP-WEEKLY-0100-RETAIN90-FULL1" weekly-archive
 
 # REAL-WORLD SCENARIOS:
@@ -140,7 +140,7 @@ retention_policies:
 # - Monthly backups on 1st at midnight
 # - Keep for 7 years (long-term archive)
 # - Full backup every time
-# openstack volume set --tag "BACKUP-MONTHLY-0000-RETAIN2555-FULL1" archive-volume
+# openstack volume set --property backup="BACKUP-MONTHLY-0000-RETAIN2555-FULL1" archive-volume
 
 # High-Frequency Database:
 # - Daily backups at 1 AM

@@ -67,13 +67,17 @@ openstack server set --tag "BACKUP-WEEKLY-0200" my-database-server
 openstack server set --tag "BACKUP-MONTHLY-0100" my-storage-server
 ```
 
-### Volume Tags
+### Volume Metadata (for individual volume backups)
 ```bash
 # Daily volume backups at 04:00, keep 60 days (single volume)
-openstack volume set --tag "BACKUP-DAILY-0400-RETAIN60" my-important-volume
+openstack volume set --property backup="BACKUP-DAILY-0400-RETAIN60" my-important-volume
 
-# Note: If you tag an instance with BACKUP-*, all attached volumes 
-# are automatically included. Individual volume tags are only needed
+# Weekly volume backups on Sunday at 01:00
+openstack volume set --property backup="BACKUP-SUNDAY-0100" my-data-volume
+
+# Note: Volumes use metadata with key "backup" (not tags)
+# If you tag an instance with BACKUP-*, all attached volumes 
+# are automatically included. Individual volume metadata is only needed
 # for standalone volumes or different schedules.
 ```
 
