@@ -11,6 +11,7 @@ on:
 
 jobs:
   test:
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -35,6 +36,7 @@ jobs:
           python -m pytest tests/ -v
 
   lint:
+    name: Code Quality (Linting & Formatting)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +67,7 @@ jobs:
           isort --check-only --diff src/
 
   config-validation:
+    name: Configuration Validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
