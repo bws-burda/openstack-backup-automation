@@ -146,7 +146,7 @@ print_info "Repository: $REPO_DIR"
 print_info "Config: $CONFIG_FILE"
 
 # Create cron entry
-CRON_ENTRY="$CRON_TIME cd $REPO_DIR && openstack-backup-automation run -c $CONFIG_FILE >/dev/null 2>&1"
+CRON_ENTRY="$CRON_TIME cd $REPO_DIR && openstack-backup-automation --config $CONFIG_FILE run >/dev/null 2>&1"
 
 # Add to user's crontab
 (crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true; echo "# OpenStack Backup Automation"; echo "$CRON_ENTRY") | crontab -
@@ -162,7 +162,7 @@ echo "   nano $CONFIG_FILE"
 echo
 echo "2. Test the backup automation manually:"
 echo "   cd $REPO_DIR"
-echo "   openstack-backup-automation run --dry-run"
+echo "   openstack-backup-automation --config $CONFIG_FILE run --dry-run"
 echo
 echo "3. Monitor cron execution:"
 echo "   tail -f /var/log/syslog | grep CRON"
