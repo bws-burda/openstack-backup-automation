@@ -46,7 +46,7 @@ openstack-backup-automation run --dry-run
 
 ### 5. Setup Automatic Execution
 ```bash
-# Setup cron job (runs every 15 minutes)
+# Setup cron job (runs every 15 minutes by default unless otherwise configured)
 ./scripts/setup-cron.sh
 
 # Or with custom interval
@@ -57,23 +57,26 @@ openstack-backup-automation run --dry-run
 
 ### Instance Tags
 ```bash
-# Daily snapshots at 03:00 (instance only)
+# Daily snapshots at 03:00 (instance and volumes)
 openstack server set --tag "SNAPSHOT-DAILY-0300" my-web-server
 
-# Weekly backups on Monday at 02:00 (instance + ALL attached volumes)
+# Weekly backups on Monday at 02:00 (all attached volumes)
 openstack server set --tag "BACKUP-WEEKLY-0200" my-database-server
 
-# Monthly backups on 1st at 01:00 (instance + ALL attached volumes)
+# Monthly backups on 1st at 01:00 (all attached volumes)
 openstack server set --tag "BACKUP-MONTHLY-0100" my-storage-server
 ```
 
 ### Volume Metadata (for individual volume backups)
 ```bash
-# Daily volume backups at 04:00, keep 60 days (single volume)
+# Daily volume backups at 04:00, keep 60 days
 openstack volume set --property backup="BACKUP-DAILY-0400-RETAIN60" my-important-volume
 
 # Weekly volume backups on Sunday at 01:00
 openstack volume set --property backup="BACKUP-SUNDAY-0100" my-data-volume
+
+# Weekly volume snapshot on Wednesday at 02:30, keep 14 days
+openstack volume set --property backup="SNAPSHOT-WEDNESDAY-0230-RETAIN14" my-volume
 
 # Note: Volumes use metadata with key "backup" (not tags)
 # If you tag an instance with BACKUP-*, all attached volumes 
@@ -84,8 +87,8 @@ openstack volume set --property backup="BACKUP-SUNDAY-0100" my-data-volume
 ## Tag Behavior
 
 ### Instance Tags
-- **SNAPSHOT-*** tags: Create instance snapshots only (fast, instance-level backup)
-- **BACKUP-*** tags: Create instance snapshot + backup ALL attached volumes (comprehensive backup)
+- **SNAPSHOT-*** tags: Create instance snapshots and volume snapshots of all attached volumes (fast, instance-level backup)
+- **BACKUP-*** tags: Create volume backups of all attached volumes (comprehensive backup)
 
 ### Volume Tags  
 - **SNAPSHOT-*** tags: Create volume snapshots
@@ -93,10 +96,9 @@ openstack volume set --property backup="BACKUP-SUNDAY-0100" my-data-volume
 
 ### Automatic Volume Inclusion
 When you tag an instance with a **BACKUP-*** tag, the system automatically:
-1. Creates an instance snapshot
-2. Discovers all volumes attached to that instance  
-3. Creates volume backups for each attached volume with the same schedule
-4. Uses the same retention policy for all components
+1. Discovers all volumes attached to that instance  
+2. Creates volume backups for each attached volume with the same schedule
+3. Uses the same retention policy for all components
 
 This provides a simple "one-tag backup solution" for complete server protection.
 
@@ -169,22 +171,11 @@ openstack-backup-automation run
 openstack-backup-automation health
 ```
 
-## Testing and Debugging
-
-### Run Unit Tests
-```bash
-# Run all tests
-python -m pytest tests/ -v
-
-# Run specific test file
-python -m pytest tests/test_tag_scanner.py -v
-```
-
 ### Manual Testing
 
 #### Test Mode for Development
 ```bash
-# Test mode - ignore timing, execute all policies (for testing backup chains)
+# Test mode - ignore timing, execute all policies
 openstack-backup-automation run --test-mode
 
 # Test mode with dry run - safe testing without creating actual backups
@@ -192,11 +183,6 @@ openstack-backup-automation run --test-mode --dry-run
 
 # Normal dry run - respect timing, simulate operations
 openstack-backup-automation run --dry-run
-
-# Test backup chains by running multiple times
-openstack-backup-automation run --test-mode  # Run 1: Creates backups
-openstack-backup-automation run --test-mode  # Run 2: Tests incremental logic
-openstack-backup-automation run --test-mode  # Run 3: Tests full backup after interval
 ```
 
 #### Database Inspection
@@ -225,14 +211,6 @@ tail -f logs/backup.log
 
 ```bash
 ./scripts/setup-cron.sh --remove
-```
-
-## System Installation (Alternative)
-
-For system-wide installation:
-
-```bash
-sudo ./scripts/install.sh
 ```
 
 ## Backup Strategy
@@ -283,6 +261,11 @@ After the first defensive backup, the system follows the normal schedule:
 
 For detailed information about advanced retention management features including batch deletion, policy priorities, and backup chain integrity, see [docs/retention-management.md](docs/retention-management.md).
 
+# Roadmap
+## Advanced Features
+
+For information about planned and ongoing development, see [ROADMAP.md](docs/ROADMAP.md).
+
 ## Development
 
 ### Running Tests Locally
@@ -292,231 +275,21 @@ pip install -r requirements-dev.txt
 
 # Run all tests
 python -m pytest tests/ -v
-```
 
-### Code Quality & Pre-Push Checks
+# Run specific test file
+python -m pytest tests/test_tag_scanner.py -v
 
-**Run all checks before pushing (same as CI):**
-
-```bash
-# 1. Critical syntax errors (must pass)
-flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-
-# 2. Code style warnings (informational, uses .flake8 config)
-flake8 src --count --exit-zero --statistics
-
-# 3. Code formatting check
-black --check --diff src/
-
-# 4. Import sorting check  
-isort --check-only --diff src/
-
-# 5. Configuration validation
-python -c "
-from src.config.manager import ConfigurationManager
-import tempfile, shutil
-shutil.copy('config.yaml.example', 'test-config.yaml')
-try:
-    manager = ConfigurationManager()
-    config = manager.load_config('test-config.yaml')
-    print('✅ Configuration file syntax is valid')
-except Exception as e:
-    if 'OpenStack' in str(e) or 'connection' in str(e).lower():
-        print('✅ Configuration syntax valid (OpenStack connection expected to fail)')
-    else:
-        raise e
-finally:
-    import os
-    if os.path.exists('test-config.yaml'):
-        os.remove('test-config.yaml')
-"
-```
-
-**Auto-fix formatting issues:**
-```bash
-# Fix code formatting
-black src/
-
-# Fix import sorting
-isort src/
-```
-
-**One-command pre-push validation:**
-```bash
-# Run all checks at once (same as GitHub Actions)
-./scripts/pre-push-checks.sh
+# Pre-Push Check (lint code, check syntax, execute tests)
+./scripts/pre-push-check.sh
 ```
 
 ### Continuous Integration
 This project uses GitHub Actions for automated testing:
-- **Tests**: Run on Python 3.8-3.12 across multiple OS
-- **Linting**: Code style and import sorting checks  
+- **Tests**: Run on Python 3.8-3.12
+- **Linting**: Code style and import sorting checks
 - **Config Validation**: Ensures example configuration is valid
 
-## Real-World Usage Examples
-
-### Scenario 1: Production Database with Compliance Requirements
-```bash
-# Daily backups at 2 AM, keep for 1 year, full backup every 7 days
-openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL7" prod-database-server
-
-# Result: Complete server + all volumes backed up daily
-# - Full backup every 7 days
-# - Incremental backups on other days
-# - Retention: 365 days
-```
-
-### Scenario 2: Development Environment with Cost Optimization
-```bash
-# Weekly snapshots on Sunday at 1 AM, keep only 2 weeks
-openstack server set --tag "SNAPSHOT-SUNDAY-0100-RETAIN14" dev-environment
-
-# Result: Fast snapshots, minimal storage cost
-# - Only runs once per week
-# - Short retention saves space
-# - Quick restore capability
-```
-
-### Scenario 3: Mixed Backup Strategy for Web Application
-```bash
-# Web servers: Daily snapshots (fast recovery)
-openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-01
-openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-02
-
-# Database server: Daily backups (data integrity)
-openstack server set --tag "BACKUP-DAILY-0200-RETAIN90-FULL7" database-server
-
-# File storage: Weekly backups (large data, less frequent changes)
-openstack volume set --property backup="BACKUP-SATURDAY-0000-RETAIN180-FULL1" file-storage-volume
-
-# Result: Optimized strategy per component
-# - Web servers: Fast recovery with snapshots
-# - Database: Comprehensive backups with incrementals
-# - Storage: Weekly full backups for large data
-```
-
-### Scenario 4: Selective Volume Backup
-```bash
-# Instance with multiple volumes, only backup specific volumes
-# Instance: NO TAG (not backed up)
-# Root disk: NO TAG (not backed up)
-# Data disk 1: Snapshot daily
-openstack volume set --property backup="SNAPSHOT-DAILY-0300" data-disk-1-id
-
-# Data disk 2: Full backup daily
-openstack volume set --property backup="BACKUP-DAILY-0400-RETAIN60" data-disk-2-id
-
-# Result: Granular control over what gets backed up
-# - Only critical data volumes are backed up
-# - Different strategies per volume
-# - Cost optimization by excluding unnecessary volumes
-```
-
-### Scenario 5: High-Frequency Database with Short Retention
-```bash
-# Database with frequent changes, full backup every 3 days
-openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-frequency-db
-
-# Result: Optimized for frequently changing data
-# - Daily backups capture all changes
-# - Full backup every 3 days (faster restore)
-# - 90-day retention for compliance
-```
-
 ## Troubleshooting
-
-### Common Issues
-
-#### 1. Authentication Failures
-
-**Problem**: `Authentication failed: Invalid credentials`
-
-**Solutions**:
-```bash
-# Verify credentials
-openstack-backup-automation config-validate
-
-# Test OpenStack CLI directly
-openstack --os-cloud default server list
-
-# Check application credential
-openstack application credential show <credential-id>
-
-# Verify config.yaml has correct values
-cat config.yaml | grep -A 5 "openstack:"
-```
-
-#### 2. No Backups Being Created
-
-**Problem**: System runs but no backups are created
-
-**Solutions**:
-```bash
-# Check if resources are tagged correctly
-openstack server list --long | grep -i backup
-openstack volume list --long
-
-# Verify resources are discovered
-openstack-backup-automation run --status
-
-# Check if backups are due (timing)
-openstack-backup-automation run --dry-run
-
-# Force execution ignoring timing
-openstack-backup-automation run --test-mode --dry-run
-```
-
-#### 3. Volume Metadata Not Working
-
-**Problem**: Volume backups not triggered despite metadata
-
-**Solutions**:
-```bash
-# Verify metadata is set correctly (use "backup" as key)
-openstack volume show <volume-id> -f json | grep -A 5 metadata
-
-# Correct format:
-openstack volume set --property backup="BACKUP-DAILY-0300" <volume-id>
-
-# NOT supported (wrong key):
-openstack volume set --property schedule="BACKUP-DAILY-0300" <volume-id>
-```
-
-#### 4. Backup Verification Timeout
-
-**Problem**: `Backup verification timed out`
-
-**Solutions**:
-```bash
-# Increase timeout in config.yaml
-backup:
-  operation_timeout_minutes: 120  # Increase from 60
-
-# Check OpenStack backup status manually
-openstack volume backup list --status creating
-
-# Check system load
-openstack quota show
-```
-
-#### 5. Database Locked Errors
-
-**Problem**: `database is locked`
-
-**Solutions**:
-```bash
-# Check if another instance is running
-ps aux | grep backup-automation
-
-# Stop any running instances
-pkill -f backup-automation
-
-# Clean up stale lock files
-rm -f backup.db-journal
-
-# Restart the service
-systemctl restart backup-automation.timer
-```
 
 ### Debug Mode
 
