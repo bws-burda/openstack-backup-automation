@@ -264,7 +264,7 @@ For detailed information about advanced retention management features including 
 # Roadmap
 ## Advanced Features
 
-For information about planned and ongoing development, see [ROADMAP.md](docs/ROADMAP.md).
+For information about planned and ongoing development, see [ROADMAP.md](ROADMAP.md).
 
 ## Development
 
