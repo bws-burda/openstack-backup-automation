@@ -166,15 +166,11 @@ print_info "The backup automation will run every $INTERVAL minutes"
 # Show next steps
 echo
 print_info "Next steps:"
-echo "1. Edit the configuration file:"
-echo "   nano $CONFIG_FILE"
+echo "1. View current crontab:"
+echo "   crontab -l"
 echo
 echo "2. Test the backup automation manually:"
-echo "   cd $REPO_DIR"
-echo "   openstack-backup-automation --config $CONFIG_FILE run --dry-run"
+echo "   $BACKUP_CMD --config $CONFIG_FILE run --dry-run"
 echo
 echo "3. Monitor cron execution:"
 echo "   tail -f /var/log/syslog | grep CRON"
-echo
-echo "4. View current crontab:"
-echo "   crontab -l"
