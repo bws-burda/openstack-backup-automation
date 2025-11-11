@@ -88,8 +88,8 @@ done
 if [[ "$REMOVE" == true ]]; then
     print_info "Removing OpenStack Backup Automation cron job..."
     
-    # Remove from user's crontab
-    (crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true) | crontab -
+    # Remove from user's crontab (both comment and command lines)
+    (crontab -l 2>/dev/null | grep -v "openstack-backup-automation" | grep -v "# OpenStack Backup Automation" || true) | crontab -
     
     print_info "Cron job removed successfully"
     exit 0
@@ -157,8 +157,8 @@ print_info "Command: $BACKUP_CMD"
 # Create cron entry
 CRON_ENTRY="$CRON_TIME $BACKUP_CMD --config $CONFIG_FILE run >/dev/null 2>&1"
 
-# Add to user's crontab
-(crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true; echo "# OpenStack Backup Automation"; echo "$CRON_ENTRY") | crontab -
+# Add to user's crontab (remove any existing entries first, including comments)
+(crontab -l 2>/dev/null | grep -v "openstack-backup-automation" | grep -v "# OpenStack Backup Automation" || true; echo "# OpenStack Backup Automation"; echo "$CRON_ENTRY") | crontab -
 
 print_info "Cron job installed successfully!"
 print_info "The backup automation will run every $INTERVAL minutes"
