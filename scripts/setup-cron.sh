@@ -122,10 +122,18 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     fi
 fi
 
-# Check if Python package is installed
-if ! command -v openstack-backup-automation &> /dev/null; then
+# Detect virtual environment and set command path
+VENV_DIR="$REPO_DIR/venv"
+if [[ -d "$VENV_DIR" ]] && [[ -f "$VENV_DIR/bin/openstack-backup-automation" ]]; then
+    print_info "Detected virtual environment at: $VENV_DIR"
+    BACKUP_CMD="$VENV_DIR/bin/openstack-backup-automation"
+elif command -v openstack-backup-automation &> /dev/null; then
+    print_info "Using system-installed openstack-backup-automation"
+    BACKUP_CMD="openstack-backup-automation"
+else
     print_info "Installing Python package in development mode..."
     python3 -m pip install -e . --user
+    BACKUP_CMD="openstack-backup-automation"
 fi
 
 # Calculate cron expression
@@ -144,9 +152,10 @@ print_info "User: $USER"
 print_info "Interval: every $INTERVAL minutes"
 print_info "Repository: $REPO_DIR"
 print_info "Config: $CONFIG_FILE"
+print_info "Command: $BACKUP_CMD"
 
 # Create cron entry
-CRON_ENTRY="$CRON_TIME cd $REPO_DIR && openstack-backup-automation --config $CONFIG_FILE run >/dev/null 2>&1"
+CRON_ENTRY="$CRON_TIME $BACKUP_CMD --config $CONFIG_FILE run >/dev/null 2>&1"
 
 # Add to user's crontab
 (crontab -l 2>/dev/null | grep -v "openstack-backup-automation" || true; echo "# OpenStack Backup Automation"; echo "$CRON_ENTRY") | crontab -
