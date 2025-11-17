@@ -94,10 +94,11 @@ jobs:
           # Copy example config to temporary file
           shutil.copy('config.yaml.example', 'test-config.yaml')
           
-          # Replace absolute path with relative path for CI
+          # Replace absolute paths with relative paths for CI
           with open('test-config.yaml', 'r') as f:
               content = f.read()
           content = content.replace('/home/ubuntu/openstack-backup-automation/backup.db', './backup.db')
+          content = content.replace('/home/ubuntu/openstack-backup-automation/logs/backup-automation.log', './logs/backup-automation.log')
           with open('test-config.yaml', 'w') as f:
               f.write(content)
 
