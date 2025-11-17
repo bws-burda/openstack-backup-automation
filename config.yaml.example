@@ -165,7 +165,7 @@ retention_policies:
 # System health:         python3 -m src.cli.main health
 
 # Database configuration
-database_path: "./backup.db"
+database_path: "/home/ubuntu/openstack-backup-automation/backup.db"
 
 # ===================================
 # Monitoring Configuration (Optional)
@@ -190,7 +190,7 @@ logging:
   level: "INFO"  # DEBUG, INFO, WARNING, ERROR
   console_enabled: true
   file_logging: true
-  log_file: "logs/backup-automation.log"
+  log_file: "/home/ubuntu/openstack-backup-automation/logs/backup-automation.log"
   max_file_size_mb: 100
   backup_count: 5
   syslog_enabled: false

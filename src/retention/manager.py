@@ -1041,7 +1041,9 @@ class RetentionManager(RetentionManagerInterface):
         # No need to consider backup_config retention settings anymore
         # as we use retention_policies exclusively
 
-        all_old_backups = self.state_manager.get_backups_older_than(max_retention_days)
+        # Get ALL backups (not just old ones) - we'll filter per-resource based on their specific retention
+        # Using 0 days means "get all backups created before now" (i.e., all backups)
+        all_old_backups = self.state_manager.get_backups_older_than(0)
 
         if not all_old_backups:
             self.logger.info("No old backups found")
