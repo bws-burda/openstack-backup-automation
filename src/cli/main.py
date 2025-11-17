@@ -172,6 +172,9 @@ def run(ctx, dry_run, test_mode, daemon, status):
                 click.echo(f"  Operations executed: {results['operations_executed']}")
                 click.echo(f"  Successful: {results['successful_operations']}")
                 click.echo(f"  Failed: {results['failed_operations']}")
+                click.echo(
+                    f"  Backups cleaned up: {results.get('retention_deleted', 0)}"
+                )
 
                 # Show system errors if any
                 if results["errors"]:
