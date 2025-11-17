@@ -89,9 +89,17 @@ jobs:
           from src.config.manager import ConfigurationManager
           import tempfile
           import shutil
+          import os
 
           # Copy example config to temporary file
           shutil.copy('config.yaml.example', 'test-config.yaml')
+          
+          # Replace absolute path with relative path for CI
+          with open('test-config.yaml', 'r') as f:
+              content = f.read()
+          content = content.replace('/home/ubuntu/openstack-backup-automation/backup.db', './backup.db')
+          with open('test-config.yaml', 'w') as f:
+              f.write(content)
 
           # Try to load it (will fail on OpenStack connection, but config should parse)
           try:
@@ -104,7 +112,6 @@ jobs:
               else:
                   raise e
           finally:
-              import os
               if os.path.exists('test-config.yaml'):
                   os.remove('test-config.yaml')
           "

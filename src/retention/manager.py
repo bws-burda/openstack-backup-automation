@@ -236,6 +236,7 @@ class RetentionManager(RetentionManagerInterface):
         use_batch_deletion: bool = True,
         batch_size: int = 5,
         backup_config=None,
+        dry_run: bool = False,
     ) -> Dict[str, any]:
         """Clean up expired backups with enhanced tag-based policies and batch deletion.
 
@@ -244,6 +245,7 @@ class RetentionManager(RetentionManagerInterface):
             use_tag_policies: If True, use tag-embedded retention policies
             use_batch_deletion: If True, use batch deletion for better performance
             batch_size: Number of backups to delete in parallel per batch
+            dry_run: If True, only simulate deletion and log what would be deleted
 
         Returns:
             Dictionary with detailed cleanup results
@@ -282,6 +284,22 @@ class RetentionManager(RetentionManagerInterface):
 
         if not backups_to_delete:
             self.logger.info("No backups eligible for deletion")
+            return cleanup_result
+
+        # Log what would be deleted (useful for dry-run)
+        self.logger.info(
+            f"Found {len(backups_to_delete)} backups eligible for deletion"
+        )
+        for backup in backups_to_delete:
+            self.logger.info(
+                f"  - {backup.backup_id} ({backup.backup_type.value}): "
+                f"resource {backup.resource_id}, created {backup.created_at}"
+            )
+
+        # If dry-run, stop here
+        if dry_run:
+            cleanup_result["deleted_count"] = len(backups_to_delete)
+            self.logger.info(f"DRY RUN: Would delete {len(backups_to_delete)} backups")
             return cleanup_result
 
         # Sort by creation date (oldest first) to maintain backup chain integrity

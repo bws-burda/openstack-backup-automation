@@ -377,7 +377,25 @@ class ExecutionCoordinator:
                 mode_desc = (
                     "DRY RUN" if not context.test_mode else "TEST MODE + DRY RUN"
                 )
-                self.logger.info(f"{mode_desc}: Would perform retention cleanup")
+                self.logger.info(f"{mode_desc}: Simulating retention cleanup")
+
+                # Still run retention check in dry-run to show what would be deleted
+                cleanup_result = await self.retention_manager.cleanup_expired_backups(
+                    self.config.retention_policies,
+                    use_tag_policies=True,
+                    use_batch_deletion=True,
+                    batch_size=5,
+                    backup_config=self.config.backup,
+                    dry_run=True,  # Pass dry_run flag to retention manager
+                )
+
+                deleted_count = cleanup_result.get("deleted_count", 0)
+                if deleted_count > 0:
+                    self.logger.info(
+                        f"{mode_desc}: Would delete {deleted_count} backups"
+                    )
+                else:
+                    self.logger.info(f"{mode_desc}: No backups would be deleted")
                 return 0
 
             cleanup_result = await self.retention_manager.cleanup_expired_backups(
