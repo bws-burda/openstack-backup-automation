@@ -204,13 +204,14 @@ def _create_file_handler(
 ) -> logging.Handler:
     """Create rotating file handler."""
     # Ensure log directory exists
-    log_path = Path(config.log_file)
+    # Resolve to absolute path to handle cwd changes
+    log_path = Path(config.log_file).resolve()
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create rotating file handler
     max_bytes = config.max_file_size_mb * 1024 * 1024
     handler = logging.handlers.RotatingFileHandler(
-        filename=config.log_file,
+        filename=str(log_path),
         maxBytes=max_bytes,
         backupCount=config.backup_count,
         encoding="utf-8",
