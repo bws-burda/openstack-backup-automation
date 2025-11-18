@@ -38,6 +38,9 @@ class BackupInfo:
     size_bytes: Optional[int] = None
     schedule_tag: Optional[str] = None
     retention_days: Optional[int] = None  # Retention policy at time of backup creation
+    related_instance_snapshot_id: Optional[str] = (
+        None  # For volume snapshots created from instance snapshots
+    )
 
     def __post_init__(self):
         """Set created_at if not provided."""

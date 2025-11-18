@@ -205,6 +205,14 @@ class RetentionManager(RetentionManagerInterface):
                 # Remove from database
                 self.state_manager.delete_backup_record(backup_info.backup_id)
                 self.logger.info(f"Successfully deleted backup {backup_info.backup_id}")
+
+                # If this is an instance snapshot, also delete related volume snapshots
+                if (
+                    backup_info.backup_type == BackupType.SNAPSHOT
+                    and backup_info.resource_type == "instance"
+                ):
+                    await self._delete_related_volume_snapshots(backup_info.backup_id)
+
                 return True
             else:
                 self.logger.error(
@@ -1886,3 +1894,62 @@ class RetentionManager(RetentionManagerInterface):
             # Fallback to default policy for unknown types
             policy = retention_policies.get("default")
             return policy.retention_days if policy else 30
+
+    async def _delete_related_volume_snapshots(self, instance_snapshot_id: str) -> None:
+        """Delete all volume snapshots related to an instance snapshot.
+
+        Args:
+            instance_snapshot_id: ID of the instance snapshot
+        """
+        try:
+            # Find all volume snapshots related to this instance snapshot
+            all_backups = self.state_manager.get_all_backups()
+            related_snapshots = [
+                b
+                for b in all_backups
+                if b.related_instance_snapshot_id == instance_snapshot_id
+            ]
+
+            if not related_snapshots:
+                self.logger.debug(
+                    f"No related volume snapshots found for instance snapshot {instance_snapshot_id}"
+                )
+                return
+
+            self.logger.info(
+                f"Found {len(related_snapshots)} related volume snapshots for instance snapshot {instance_snapshot_id}"
+            )
+
+            # Delete each related volume snapshot
+            for volume_snapshot in related_snapshots:
+                try:
+                    self.logger.info(
+                        f"Deleting related volume snapshot {volume_snapshot.backup_id} "
+                        f"for volume {volume_snapshot.resource_id}"
+                    )
+
+                    success = await self.openstack_client.delete_snapshot(
+                        volume_snapshot.backup_id, "volume"
+                    )
+
+                    if success:
+                        self.state_manager.delete_backup_record(
+                            volume_snapshot.backup_id
+                        )
+                        self.logger.info(
+                            f"Successfully deleted related volume snapshot {volume_snapshot.backup_id}"
+                        )
+                    else:
+                        self.logger.error(
+                            f"Failed to delete related volume snapshot {volume_snapshot.backup_id}"
+                        )
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Exception while deleting related volume snapshot {volume_snapshot.backup_id}: {e}"
+                    )
+
+        except Exception as e:
+            self.logger.error(
+                f"Exception while deleting related volume snapshots for instance snapshot {instance_snapshot_id}: {e}"
+            )

@@ -298,6 +298,19 @@ class BackupEngine:
             # Record in state manager
             self.state_manager.record_backup(backup_info)
 
+            # If this is an instance snapshot, find and record related volume snapshots
+            if (
+                actual_backup_type == BackupType.SNAPSHOT
+                and operation.resource_type == "instance"
+            ):
+                await self._find_and_record_related_volume_snapshots(
+                    operation.resource_id,
+                    backup_id,
+                    backup_name,
+                    operation.schedule_tag,
+                    retention_days,
+                )
+
             result.status = OperationStatus.COMPLETED
             result.backup_info = backup_info
             result.completed_at = datetime.now(timezone.utc)
@@ -448,3 +461,109 @@ class BackupEngine:
         if match:
             return int(match.group(1))
         return None
+
+    async def _find_and_record_related_volume_snapshots(
+        self,
+        instance_id: str,
+        instance_snapshot_id: str,
+        instance_snapshot_name: str,
+        schedule_tag: str,
+        retention_days: Optional[int],
+    ) -> None:
+        """Find and record volume snapshots created from an instance snapshot.
+
+        When an instance snapshot is created, OpenStack automatically creates snapshots
+        of all attached volumes. This method finds those volume snapshots by matching
+        the snapshot name pattern and records them with a reference to the instance snapshot.
+
+        Args:
+            instance_id: ID of the instance
+            instance_snapshot_id: ID of the instance snapshot
+            instance_snapshot_name: Name of the instance snapshot
+            schedule_tag: Schedule tag from the instance
+            retention_days: Retention days for the backups
+        """
+        try:
+            # Get volumes attached to the instance
+            volumes = await self.openstack_client.get_instance_volumes(instance_id)
+
+            if not volumes:
+                self.logger.debug(f"No volumes attached to instance {instance_id}")
+                return
+
+            self.logger.debug(
+                f"Found {len(volumes)} volumes attached to instance {instance_id}"
+            )
+
+            # For each volume, find the snapshot created from this instance snapshot
+            for volume in volumes:
+                volume_id = volume.get("id")
+                if not volume_id:
+                    continue
+
+                try:
+                    # Get all snapshots for this volume
+                    snapshots = await self.openstack_client.list_volume_snapshots()
+
+                    # Filter for snapshots of this volume
+                    volume_snapshots = [
+                        s for s in snapshots if s.get("volume_id") == volume_id
+                    ]
+
+                    if not volume_snapshots:
+                        self.logger.debug(f"No snapshots found for volume {volume_id}")
+                        continue
+
+                    # Find snapshot by name pattern: "snapshot vor <instance_snapshot_name>"
+                    # OpenStack automatically names volume snapshots this way
+                    expected_snapshot_name = f"snapshot vor {instance_snapshot_name}"
+
+                    matching_snapshot = None
+                    for snapshot in volume_snapshots:
+                        snapshot_name = snapshot.get("name", "")
+                        if snapshot_name == expected_snapshot_name:
+                            matching_snapshot = snapshot
+                            break
+
+                    if not matching_snapshot:
+                        self.logger.debug(
+                            f"No snapshot found with expected name '{expected_snapshot_name}' for volume {volume_id}"
+                        )
+                        continue
+
+                    snapshot_id = matching_snapshot.get("id")
+                    if not snapshot_id:
+                        continue
+
+                    self.logger.info(
+                        f"Found related volume snapshot {snapshot_id} (name: {expected_snapshot_name}) "
+                        f"for volume {volume_id} from instance snapshot {instance_snapshot_id}"
+                    )
+
+                    # Record this volume snapshot with reference to instance snapshot
+                    backup_info = BackupInfo(
+                        backup_id=snapshot_id,
+                        resource_id=volume_id,
+                        resource_type="volume",
+                        backup_type=BackupType.SNAPSHOT,
+                        verified=True,  # Volume snapshots created by instance snapshot are verified
+                        schedule_tag=schedule_tag,
+                        retention_days=retention_days,
+                        related_instance_snapshot_id=instance_snapshot_id,
+                    )
+
+                    self.state_manager.record_backup(backup_info)
+                    self.logger.debug(
+                        f"Recorded volume snapshot {snapshot_id} as related to instance snapshot {instance_snapshot_id}"
+                    )
+
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to find/record volume snapshot for volume {volume_id}: {e}"
+                    )
+                    continue
+
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to find related volume snapshots for instance {instance_id}: {e}"
+            )

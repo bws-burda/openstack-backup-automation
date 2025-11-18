@@ -30,7 +30,7 @@ class StateManager(StateManagerInterface):
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection with proper configuration."""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(str(self.db_path))
         conn.execute("PRAGMA foreign_keys = ON")
         conn.row_factory = sqlite3.Row  # Enable column access by name
         return conn
@@ -60,8 +60,9 @@ class StateManager(StateManagerInterface):
                 """
                 INSERT INTO backups (
                     backup_id, resource_id, resource_type, backup_type,
-                    parent_backup_id, created_at, verified, size_bytes, schedule_tag, retention_days
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    parent_backup_id, created_at, verified, size_bytes, schedule_tag, retention_days,
+                    related_instance_snapshot_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     backup_info.backup_id,
@@ -74,6 +75,7 @@ class StateManager(StateManagerInterface):
                     backup_info.size_bytes,
                     backup_info.schedule_tag or "",
                     backup_info.retention_days,
+                    backup_info.related_instance_snapshot_id,
                 ),
             )
 
@@ -92,7 +94,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
                 ORDER BY created_at DESC
@@ -119,7 +122,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
                 ORDER BY created_at ASC
@@ -144,7 +148,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE created_at < ?
                 ORDER BY created_at ASC
@@ -170,7 +175,8 @@ class StateManager(StateManagerInterface):
                 WITH RECURSIVE backup_chain AS (
                     -- Start with direct children
                     SELECT backup_id, resource_id, resource_type, backup_type,
-                           parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                           parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                           retention_days, related_instance_snapshot_id
                     FROM backups
                     WHERE parent_backup_id = ?
 
@@ -178,7 +184,8 @@ class StateManager(StateManagerInterface):
 
                     -- Recursively find children of children
                     SELECT b.backup_id, b.resource_id, b.resource_type, b.backup_type,
-                           b.parent_backup_id, b.created_at, b.verified, b.size_bytes, b.schedule_tag
+                           b.parent_backup_id, b.created_at, b.verified, b.size_bytes, b.schedule_tag,
+                           b.retention_days, b.related_instance_snapshot_id
                     FROM backups b
                     INNER JOIN backup_chain bc ON b.parent_backup_id = bc.backup_id
                 )
@@ -234,7 +241,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE backup_id = ?
             """,
@@ -259,7 +267,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ? AND backup_type = 'full'
                 ORDER BY created_at DESC
@@ -294,7 +303,8 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
                   AND backup_type = 'incremental'
