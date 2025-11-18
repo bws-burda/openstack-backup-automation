@@ -603,10 +603,13 @@ def install(ctx, user, config_dir, data_dir):
 def install_cron_job(user, config_dir, data_dir):
     """Install cron job for the specified user."""
     cron_file = "/etc/cron.d/backup-automation"
+    venv_bin = os.path.join(data_dir, "venv/bin/openstack-backup-automation")
+    config_file = os.path.join(config_dir, "config.yaml")
+    
     with open(cron_file, "w") as f:
         f.write("# OpenStack Backup Automation\n")
         f.write(
-            f"*/15 * * * * {user} cd {data_dir} && CONFIG_FILE={config_dir}/config.yaml /usr/local/bin/openstack-backup-automation run >/dev/null 2>&1\n"
+            f"*/15 * * * * {user} {venv_bin} --config {config_file} run >/dev/null 2>&1\n"
         )
     os.chmod(cron_file, 0o644)
     click.echo("✓ Cron job installed: /etc/cron.d/backup-automation")
