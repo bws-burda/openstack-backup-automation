@@ -396,7 +396,7 @@ class ExecutionCoordinator:
                     )
                 else:
                     self.logger.info(f"{mode_desc}: No backups would be deleted")
-                return deleted_count
+                return 0
 
             cleanup_result = await self.retention_manager.cleanup_expired_backups(
                 self.config.retention_policies,
