@@ -605,7 +605,7 @@ def install_cron_job(user, config_dir, data_dir):
     cron_file = "/etc/cron.d/backup-automation"
     venv_bin = os.path.join(data_dir, "venv/bin/openstack-backup-automation")
     config_file = os.path.join(config_dir, "config.yaml")
-    
+
     with open(cron_file, "w") as f:
         f.write("# OpenStack Backup Automation\n")
         f.write(
