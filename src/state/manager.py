@@ -19,7 +19,8 @@ class StateManager(StateManagerInterface):
         Args:
             db_path: Path to SQLite database file
         """
-        self.db_path = Path(db_path)
+        # Resolve to absolute path to handle cwd changes (e.g., from cron jobs)
+        self.db_path = Path(db_path).resolve()
         self.schema = DatabaseSchema(str(self.db_path))
         self._initialize_database()
 
@@ -30,7 +31,7 @@ class StateManager(StateManagerInterface):
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection with proper configuration."""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(str(self.db_path))
         conn.execute("PRAGMA foreign_keys = ON")
         conn.row_factory = sqlite3.Row  # Enable column access by name
         return conn
