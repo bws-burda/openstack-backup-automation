@@ -280,6 +280,9 @@ class BackupEngine:
                 backup_id, operation.resource_type, operation.timeout_minutes
             )
 
+            # Calculate retention days for this backup
+            retention_days = self._calculate_retention_days(operation.schedule_tag)
+
             # Create backup info with actual backup type and parent
             backup_info = BackupInfo(
                 backup_id=backup_id,
@@ -289,6 +292,7 @@ class BackupEngine:
                 parent_backup_id=parent_backup_id,
                 verified=verification_success,
                 schedule_tag=operation.schedule_tag,
+                retention_days=retention_days,
             )
 
             # Record in state manager
@@ -424,3 +428,23 @@ class BackupEngine:
         """Cleanup executor on destruction."""
         if hasattr(self, "executor"):
             self.executor.shutdown(wait=False)
+
+    def _calculate_retention_days(self, schedule_tag: str) -> Optional[int]:
+        """Calculate retention days from schedule tag.
+
+        Args:
+            schedule_tag: Schedule tag like 'SNAPSHOT-DAILY-0300-RETAIN14'
+
+        Returns:
+            Retention days if found in tag, None otherwise
+        """
+        if not schedule_tag:
+            return None
+
+        import re
+
+        # Look for RETAIN followed by digits
+        match = re.search(r"RETAIN(\d+)", schedule_tag)
+        if match:
+            return int(match.group(1))
+        return None

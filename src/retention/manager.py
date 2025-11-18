@@ -1091,24 +1091,37 @@ class RetentionManager(RetentionManagerInterface):
 
             # Process each backup with its specific retention policy
             for backup in resource_backups:
-                # Determine the retention policy for this backup
-                effective_policy = self._get_effective_retention_policy(
-                    backup, default_retention_policy, global_retention_policies
-                )
+                # Use retention_days stored with the backup (from creation time)
+                # If not set, fall back to effective policy
+                if backup.retention_days is not None:
+                    retention_days = backup.retention_days
+                    self.logger.debug(
+                        f"Using stored retention for backup {backup.backup_id}: {retention_days} days"
+                    )
+                else:
+                    # Fallback to effective policy if retention_days not stored
+                    effective_policy = self._get_effective_retention_policy(
+                        backup, default_retention_policy, global_retention_policies
+                    )
+                    retention_days = effective_policy.retention_days
+                    self.logger.debug(
+                        f"Using effective retention for backup {backup.backup_id}: {retention_days} days"
+                    )
 
-                # Check if backup is old enough for this policy
+                # Check if backup is old enough for deletion
                 backup_age = self.calculate_backup_age(backup)
-                if backup_age < effective_policy.retention_days:
-                    continue  # Not old enough for deletion under this policy
+                if backup_age < retention_days:
+                    continue  # Not old enough for deletion
 
-                # Apply retention rules with the effective policy
+                # Apply retention rules
+                effective_policy = RetentionPolicy(retention_days=retention_days)
                 if self._is_backup_deletable_under_policy(
                     backup, all_resource_backups, effective_policy
                 ):
                     backups_to_delete.append(backup)
                     self.logger.debug(
                         f"Backup {backup.backup_id} marked for deletion "
-                        f"(policy: {effective_policy.retention_days}d retention)"
+                        f"(retention: {retention_days}d)"
                     )
 
         self.logger.info(

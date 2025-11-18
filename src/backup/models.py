@@ -8,7 +8,6 @@ from typing import Optional
 
 class BackupType(Enum):
     """Types of backup operations."""
-
     SNAPSHOT = "snapshot"
     FULL = "full"
     INCREMENTAL = "incremental"
@@ -37,6 +36,7 @@ class BackupInfo:
     verified: bool = False
     size_bytes: Optional[int] = None
     schedule_tag: Optional[str] = None
+    retention_days: Optional[int] = None  # Retention policy at time of backup creation
 
     def __post_init__(self):
         """Set created_at if not provided."""

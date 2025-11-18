@@ -60,8 +60,8 @@ class StateManager(StateManagerInterface):
                 """
                 INSERT INTO backups (
                     backup_id, resource_id, resource_type, backup_type,
-                    parent_backup_id, created_at, verified, size_bytes, schedule_tag
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    parent_backup_id, created_at, verified, size_bytes, schedule_tag, retention_days
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     backup_info.backup_id,
@@ -73,6 +73,7 @@ class StateManager(StateManagerInterface):
                     backup_info.verified,
                     backup_info.size_bytes,
                     backup_info.schedule_tag or "",
+                    backup_info.retention_days,
                 ),
             )
 

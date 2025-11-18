@@ -9,7 +9,7 @@ class DatabaseSchema:
     """Manages database schema creation and migrations."""
 
     # Current schema version
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 3
 
     # SQL statements for table creation
     CREATE_TABLES_SQL = [
@@ -135,9 +135,19 @@ class DatabaseSchema:
             return
 
         if current_version < self.SCHEMA_VERSION:
-            # Future migrations would go here
-            # For now, we only have version 1
-            pass
+            # Perform migrations
+            if current_version < 2:
+                self._migrate_to_v2()
+            if current_version < 3:
+                self._migrate_to_v3()
+            
+            # Update schema version
+            with sqlite3.connect(str(self.db_path)) as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO schema_version (version) VALUES (?)",
+                    (self.SCHEMA_VERSION,),
+                )
+                conn.commit()
 
     def validate_database(self) -> bool:
         """Validate database schema integrity.
@@ -211,3 +221,22 @@ class DatabaseSchema:
 
         except sqlite3.Error as e:
             return {"error": str(e)}
+
+    def _migrate_to_v2(self) -> None:
+        """Migrate database to schema version 2."""
+        # Version 2 would add new columns if needed
+        # For now, this is a placeholder
+        pass
+
+    def _migrate_to_v3(self) -> None:
+        """Migrate database to schema version 3 - add retention_days column."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            # Add retention_days column to backups table if it doesn't exist
+            cursor = conn.execute("PRAGMA table_info(backups)")
+            columns = {row[1] for row in cursor.fetchall()}
+            
+            if "retention_days" not in columns:
+                conn.execute(
+                    "ALTER TABLE backups ADD COLUMN retention_days INTEGER"
+                )
+                conn.commit()
