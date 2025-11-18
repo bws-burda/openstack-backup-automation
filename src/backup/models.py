@@ -8,6 +8,7 @@ from typing import Optional
 
 class BackupType(Enum):
     """Types of backup operations."""
+
     SNAPSHOT = "snapshot"
     FULL = "full"
     INCREMENTAL = "incremental"

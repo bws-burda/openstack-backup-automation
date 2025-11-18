@@ -140,7 +140,7 @@ class DatabaseSchema:
                 self._migrate_to_v2()
             if current_version < 3:
                 self._migrate_to_v3()
-            
+
             # Update schema version
             with sqlite3.connect(str(self.db_path)) as conn:
                 conn.execute(
@@ -234,9 +234,7 @@ class DatabaseSchema:
             # Add retention_days column to backups table if it doesn't exist
             cursor = conn.execute("PRAGMA table_info(backups)")
             columns = {row[1] for row in cursor.fetchall()}
-            
+
             if "retention_days" not in columns:
-                conn.execute(
-                    "ALTER TABLE backups ADD COLUMN retention_days INTEGER"
-                )
+                conn.execute("ALTER TABLE backups ADD COLUMN retention_days INTEGER")
                 conn.commit()
