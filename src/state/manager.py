@@ -427,4 +427,6 @@ class StateManager(StateManagerInterface):
             verified=bool(row["verified"]),
             size_bytes=row["size_bytes"],
             schedule_tag=row["schedule_tag"],
+            retention_days=row["retention_days"],
+            related_instance_snapshot_id=row["related_instance_snapshot_id"],
         )
