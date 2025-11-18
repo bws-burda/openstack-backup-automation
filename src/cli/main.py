@@ -41,13 +41,9 @@ def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = 
             )
             setup_comprehensive_logging(logging_config)
             return
-        except Exception as e:
+        except Exception:
             # Fall back to basic logging if config loading fails
-            # Print error to stderr so we know what went wrong
-            print(
-                f"Warning: Failed to load logging config from {config_path}: {e}",
-                file=sys.stderr,
-            )
+            pass
     # Basic logging setup as fallback
     fallback_level = log_level if log_level is not None else "INFO"
     level = getattr(logging, fallback_level.upper(), logging.INFO)

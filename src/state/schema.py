@@ -73,16 +73,13 @@ class DatabaseSchema:
         Args:
             db_path: Path to SQLite database file
         """
+        self.db_path = Path(db_path) if db_path != ":memory:" else db_path
         if db_path != ":memory:":
-            # Resolve to absolute path to handle cwd changes (e.g., from cron jobs)
-            self.db_path = Path(db_path).resolve()
-            self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            self.db_path = db_path
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
     def initialize_database(self) -> None:
         """Initialize database with schema and indexes."""
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with sqlite3.connect(self.db_path) as conn:
             # Enable foreign key constraints
             conn.execute("PRAGMA foreign_keys = ON")
 
@@ -109,7 +106,7 @@ class DatabaseSchema:
             Current schema version or None if not set
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
                     "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
                 )
@@ -149,7 +146,7 @@ class DatabaseSchema:
             True if database schema is valid
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with sqlite3.connect(self.db_path) as conn:
                 # Check if all required tables exist
                 cursor = conn.execute(
                     """
@@ -182,7 +179,7 @@ class DatabaseSchema:
             Dictionary with database statistics
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with sqlite3.connect(self.db_path) as conn:
                 stats = {}
 
                 # Count resources
