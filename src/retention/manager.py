@@ -462,7 +462,12 @@ class RetentionManager(RetentionManagerInterface):
             return 0
 
         now = datetime.now(timezone.utc)
-        age = now - backup_info.created_at
+        # Ensure both datetimes are timezone-aware
+        backup_time = backup_info.created_at
+        if backup_time.tzinfo is None:
+            backup_time = backup_time.replace(tzinfo=timezone.utc)
+
+        age = now - backup_time
         return age.days
 
     def get_retention_candidates(
@@ -1048,8 +1053,6 @@ class RetentionManager(RetentionManagerInterface):
 
         # Handle case where default_retention_policy is None
         if default_retention_policy is None:
-            from ..config.models import RetentionPolicy
-
             default_retention_policy = RetentionPolicy(retention_days=30)
 
         if global_retention_policies:
@@ -1844,7 +1847,12 @@ class RetentionManager(RetentionManagerInterface):
 
         for backup in backups:
             if backup.created_at:
-                age_days = (now - backup.created_at).days
+                # Ensure both datetimes are timezone-aware
+                backup_time = backup.created_at
+                if backup_time.tzinfo is None:
+                    backup_time = backup_time.replace(tzinfo=timezone.utc)
+
+                age_days = (now - backup_time).days
                 if age_days > retention_days:
                     candidates.append(backup)
                     self.logger.debug(

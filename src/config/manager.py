@@ -246,6 +246,7 @@ class ConfigurationManager:
                 scheduling=scheduling_config,
                 retention_policies=retention_policies,
                 database_path=config_data.get("database_path", "./backup.db"),
+                timezone=config_data.get("timezone", "UTC"),
                 logging=logging_config,
             )
 

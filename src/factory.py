@@ -26,7 +26,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
 
     # Create components
     state_manager = StateManager(config.database_path)
-    tag_scanner = TagScanner(openstack_client)
+    tag_scanner = TagScanner(openstack_client, timezone=config.timezone)
 
     backup_engine = BackupEngine(
         openstack_client=openstack_client,

@@ -51,6 +51,11 @@ scheduling:
   # Check interval for daemon mode (minutes)
   check_interval_minutes: 15
 
+# Timezone for schedule tag interpretation
+# Times in schedule tags (e.g., SNAPSHOT-DAILY-0300) are interpreted in this timezone
+# Examples: "UTC", "Europe/Berlin", "America/New_York", "Asia/Tokyo"
+timezone: "Europe/Berlin"
+
 # Retention policies for different backup types
 retention_policies:
   default:

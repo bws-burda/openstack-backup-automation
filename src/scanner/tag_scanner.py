@@ -25,8 +25,11 @@ class TagScanner:
         r"^(SNAPSHOT|BACKUP)-(DAILY|WEEKLY|MONTHLY|MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)-(\d{4})(?:-RETAIN(\d+))?(?:-FULL(\d+))?$"
     )
 
-    def __init__(self, openstack_client: Any):  # OpenStackClientInterface
+    def __init__(
+        self, openstack_client: Any, timezone: str = "UTC"
+    ):  # OpenStackClientInterface
         self.openstack_client = openstack_client
+        self.timezone = timezone
         self.logger = logging.getLogger(__name__)
 
     async def scan_instances(self) -> List[ScheduledResource]:
@@ -284,8 +287,14 @@ class TagScanner:
         Implements defensive backup strategy:
         - If no previous backup exists, create one immediately (defensive backup)
         - Otherwise, follow the regular schedule
+
+        Times in schedule tags are interpreted in the configured timezone.
         """
-        now = datetime.now(timezone.utc)
+        import pytz
+
+        # Get current time in configured timezone
+        tz = pytz.timezone(self.timezone)
+        now = datetime.now(tz)
         schedule_info = resource.schedule_info
 
         # DEFENSIVE BACKUP STRATEGY: If no backup exists, create one immediately

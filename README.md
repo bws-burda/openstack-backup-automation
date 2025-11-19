@@ -31,8 +31,15 @@ pip install -e .
 # Copy example configuration
 cp config.yaml.example config.yaml
 
-# Edit with your OpenStack credentials
+# Edit with your OpenStack credentials and timezone
 vi config.yaml
+```
+
+**Important:** Set the `timezone` in config.yaml to match your local timezone. Schedule times in tags (e.g., `SNAPSHOT-DAILY-0300`) are interpreted in this timezone.
+
+```yaml
+# config.yaml
+timezone: "Europe/Berlin"  # or "UTC", "America/New_York", etc.
 ```
 
 ### 4. Test Configuration

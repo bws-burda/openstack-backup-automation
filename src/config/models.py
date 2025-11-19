@@ -306,6 +306,9 @@ class Config:
     # Database configuration
     database_path: str = "./backup.db"
 
+    # Timezone for scheduling (e.g., "Europe/Berlin", "UTC", "America/New_York")
+    timezone: str = "UTC"
+
     # Logging configuration
     logging: LoggingConfig = field(default_factory=LoggingConfig)
 
