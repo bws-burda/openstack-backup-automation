@@ -415,15 +415,20 @@ class StateManager(StateManagerInterface):
         Returns:
             BackupInfo object
         """
+        created_at = None
+        if row["created_at"]:
+            created_at = datetime.fromisoformat(row["created_at"])
+            # Ensure timezone-aware datetime (UTC)
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+        
         return BackupInfo(
             backup_id=row["backup_id"],
             resource_id=row["resource_id"],
             resource_type=row["resource_type"],
             backup_type=BackupType(row["backup_type"]),
             parent_backup_id=row["parent_backup_id"],
-            created_at=(
-                datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
-            ),
+            created_at=created_at,
             verified=bool(row["verified"]),
             size_bytes=row["size_bytes"],
             schedule_tag=row["schedule_tag"],
