@@ -1187,6 +1187,26 @@ class RetentionManager(RetentionManagerInterface):
                         f"(retention: {retention_days}d)"
                     )
 
+                    # If this is a volume snapshot with a related instance snapshot,
+                    # also mark the instance snapshot for deletion to avoid FK constraints
+                    if (
+                        backup.backup_type == BackupType.SNAPSHOT
+                        and backup.resource_type == "volume"
+                        and backup.related_instance_snapshot_id
+                    ):
+                        related_instance_snapshot = self.state_manager.get_backup_by_id(
+                            backup.related_instance_snapshot_id
+                        )
+                        if (
+                            related_instance_snapshot
+                            and related_instance_snapshot not in backups_to_delete
+                        ):
+                            backups_to_delete.append(related_instance_snapshot)
+                            self.logger.debug(
+                                f"Also marking related instance snapshot {related_instance_snapshot.backup_id} "
+                                f"for deletion (FK constraint)"
+                            )
+
         self.logger.info(
             f"Total backups marked for deletion with tag policies: {len(backups_to_delete)}"
         )
