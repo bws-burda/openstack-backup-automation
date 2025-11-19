@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 
+import pytz
+
 from ..backup.models import BackupInfo, BackupType
 from ..interfaces import StateManagerInterface
 from .schema import DatabaseSchema
@@ -13,14 +15,22 @@ from .schema import DatabaseSchema
 class StateManager(StateManagerInterface):
     """Manages backup state and history using SQLite database."""
 
-    def __init__(self, db_path: str = "backup_state.db"):
+    def __init__(self, db_path: str = "backup_state.db", timezone_str: str = "UTC"):
         """Initialize state manager.
 
         Args:
             db_path: Path to SQLite database file
+            timezone_str: Timezone string from config (e.g., "Europe/Berlin")
         """
         self.db_path = Path(db_path)
         self.schema = DatabaseSchema(str(self.db_path))
+
+        # Set timezone from config
+        try:
+            self.tz = pytz.timezone(timezone_str)
+        except pytz.exceptions.UnknownTimeZoneError:
+            self.tz = pytz.UTC
+
         self._initialize_database()
 
     def _initialize_database(self) -> None:
@@ -142,7 +152,9 @@ class StateManager(StateManagerInterface):
         Returns:
             List of backup info for old backups
         """
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        # Use configured timezone for all datetime operations
+        now = datetime.now(self.tz)
+        cutoff_date = now - timedelta(days=days)
 
         with self._get_connection() as conn:
             cursor = conn.execute(
@@ -155,6 +167,25 @@ class StateManager(StateManagerInterface):
                 ORDER BY created_at ASC
             """,
                 (cutoff_date,),
+            )
+
+            return [self._row_to_backup_info(row) for row in cursor.fetchall()]
+
+    def get_all_backups(self) -> List[BackupInfo]:
+        """Get all backups in the database.
+
+        Returns:
+            List of all backup info
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT backup_id, resource_id, resource_type, backup_type,
+                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       retention_days, related_instance_snapshot_id
+                FROM backups
+                ORDER BY created_at ASC
+            """
             )
 
             return [self._row_to_backup_info(row) for row in cursor.fetchall()]
@@ -391,7 +422,9 @@ class StateManager(StateManagerInterface):
         Returns:
             Number of records deleted
         """
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        # Use configured timezone for all datetime operations
+        now = datetime.now(self.tz)
+        cutoff_date = now - timedelta(days=retention_days)
 
         with self._get_connection() as conn:
             cursor = conn.execute(
@@ -418,9 +451,13 @@ class StateManager(StateManagerInterface):
         created_at = None
         if row["created_at"]:
             created_at = datetime.fromisoformat(row["created_at"])
-            # Ensure timezone-aware datetime (UTC)
+            # Ensure timezone-aware datetime in configured timezone
             if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
+                # Assume naive datetimes are in the configured timezone
+                created_at = self.tz.localize(created_at)
+            else:
+                # Convert aware datetimes to configured timezone
+                created_at = created_at.astimezone(self.tz)
 
         return BackupInfo(
             backup_id=row["backup_id"],

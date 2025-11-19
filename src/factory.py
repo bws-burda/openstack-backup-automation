@@ -25,7 +25,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         raise RuntimeError("Failed to authenticate with OpenStack")
 
     # Create components
-    state_manager = StateManager(config.database_path)
+    state_manager = StateManager(config.database_path, timezone_str=config.timezone)
     tag_scanner = TagScanner(openstack_client, timezone=config.timezone)
 
     backup_engine = BackupEngine(
@@ -68,7 +68,7 @@ def create_health_checker_from_config(config_path: str) -> HealthChecker:
         raise RuntimeError("Failed to authenticate with OpenStack")
 
     # Create state manager
-    state_manager = StateManager(config.database_path)
+    state_manager = StateManager(config.database_path, timezone_str=config.timezone)
 
     # Create health check configuration
     health_check_config = HealthCheckConfig(
@@ -97,7 +97,7 @@ def create_status_reporter_from_config(config_path: str) -> StatusReporter:
 
     # Create notification service and state manager (email is optional)
     notification_service = NotificationService(config.notifications)
-    state_manager = StateManager(config.database_path)
+    state_manager = StateManager(config.database_path, timezone_str=config.timezone)
 
     return StatusReporter(
         notification_service=notification_service,

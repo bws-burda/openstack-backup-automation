@@ -149,6 +149,11 @@ class StateManagerInterface(ABC):
         pass
 
     @abstractmethod
+    def get_all_backups(self) -> List[BackupInfo]:
+        """Get all backups in the database."""
+        pass
+
+    @abstractmethod
     def delete_backup_record(self, backup_id: str) -> None:
         """Delete a backup record from the database."""
         pass

@@ -488,10 +488,14 @@ class RetentionManager(RetentionManagerInterface):
             return 0
 
         now = self._get_now()
-        # Ensure both datetimes are timezone-aware
+        # Ensure both datetimes are timezone-aware in configured timezone
         backup_time = backup_info.created_at
         if backup_time.tzinfo is None:
-            backup_time = backup_time.replace(tzinfo=self.tz)
+            # Assume naive datetimes are in the configured timezone
+            backup_time = self.tz.localize(backup_time)
+        else:
+            # Convert aware datetimes to configured timezone
+            backup_time = backup_time.astimezone(self.tz)
 
         age = now - backup_time
         return age.days
@@ -1097,8 +1101,7 @@ class RetentionManager(RetentionManagerInterface):
         # as we use retention_policies exclusively
 
         # Get ALL backups (not just old ones) - we'll filter per-resource based on their specific retention
-        # Using 0 days means "get all backups created before now" (i.e., all backups)
-        all_old_backups = self.state_manager.get_backups_older_than(0)
+        all_old_backups = self.state_manager.get_all_backups()
 
         if not all_old_backups:
             self.logger.info("No old backups found")
