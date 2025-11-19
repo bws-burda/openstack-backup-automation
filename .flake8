@@ -30,8 +30,3 @@ exclude =
     build,
     dist,
     *.egg-info
-
-# Per-file ignores (if needed)
-per-file-ignores =
-    # Allow unused imports in __init__.py files
-    __init__.py:F401

@@ -14,7 +14,6 @@ from ..core.context import BackupContext
 from ..factory import create_coordinator_from_config
 from ..logging.config import LoggingConfig
 from ..logging.config import setup_logging as setup_comprehensive_logging
-from ..scheduler.daemon import DaemonRunner
 
 
 def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = None):
@@ -69,12 +68,10 @@ def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = 
 def cli(ctx, config, log_level):
     """OpenStack Backup Automation - Automated backup and snapshot system for OpenStack resources.
     This tool automatically creates backups and snapshots of OpenStack instances and volumes
-    based on schedule tags. It supports both cron-based and daemon execution modes.
+    based on schedule tags. Designed for cron-based execution.
     Examples:
         # Run a single backup cycle (cron mode)
         openstack-backup-automation run
-        # Run as daemon with continuous monitoring
-        openstack-backup-automation run --daemon
         # Validate configuration file
         openstack-backup-automation config-validate
         # Install as cron job
@@ -97,14 +94,12 @@ def cli(ctx, config, log_level):
     is_flag=True,
     help="Ignore timing constraints and execute all policies (for testing)",
 )
-@click.option("--daemon", is_flag=True, help="Run as daemon with continuous monitoring")
 @click.option("--status", is_flag=True, help="Show current system status and exit")
 @click.pass_context
-def run(ctx, dry_run, test_mode, daemon, status):
+def run(ctx, dry_run, test_mode, status):
     """Execute backup operations.
     This command runs the backup automation system. By default, it performs
-    a single backup cycle (suitable for cron execution). Use --daemon for
-    continuous operation.
+    a single backup cycle (suitable for cron execution).
     Examples:
         # Single backup cycle (cron mode)
         openstack-backup-automation run
@@ -114,8 +109,6 @@ def run(ctx, dry_run, test_mode, daemon, status):
         openstack-backup-automation run --test-mode
         # Test mode with dry run - safe testing
         openstack-backup-automation run --test-mode --dry-run
-        # Run as daemon
-        openstack-backup-automation run --daemon
         # Check system status
         openstack-backup-automation run --status
     """
@@ -134,7 +127,9 @@ def run(ctx, dry_run, test_mode, daemon, status):
             async def show_status():
                 info = await coordinator.get_system_status()
                 click.echo("=== OpenStack Backup Automation Status ===")
-                click.echo(f"Configuration: {config_path}")
+                # Show absolute path to config file
+                abs_config_path = os.path.abspath(config_path)
+                click.echo(f"Configuration: {abs_config_path}")
                 click.echo(f"Scheduled resources: {info['total_scheduled_resources']}")
                 click.echo(
                     f"Resources due for backup: {info['resources_due_for_backup']}"
@@ -145,18 +140,6 @@ def run(ctx, dry_run, test_mode, daemon, status):
                 )
 
             asyncio.run(show_status())
-        elif daemon:
-            # Run daemon mode
-            config_manager = ConfigurationManager()
-            config_obj = config_manager.load_config(config_path)
-            runner = DaemonRunner(
-                coordinator, config_obj.scheduling.check_interval_minutes
-            )
-            click.echo(
-                f"Starting daemon mode (checking every {config_obj.scheduling.check_interval_minutes} minutes)"
-            )
-            click.echo("Press Ctrl+C to stop")
-            sys.exit(runner.run_sync())
         else:
             # Run single backup cycle (cron mode)
             async def run_backup():
