@@ -228,8 +228,6 @@ class RetentionManager(RetentionManagerInterface):
                 )
 
             if success:
-                # Remove from database
-                self.state_manager.delete_backup_record(backup_info.backup_id)
                 self.logger.info(f"Successfully deleted backup {backup_info.backup_id}")
 
                 # If this is an instance snapshot, also delete related volume snapshots
@@ -239,6 +237,8 @@ class RetentionManager(RetentionManagerInterface):
                 ):
                     await self._delete_related_volume_snapshots(backup_info.backup_id)
 
+                # Remove from database AFTER all related deletions are done
+                self.state_manager.delete_backup_record(backup_info.backup_id)
                 return True
             else:
                 self.logger.error(
@@ -1976,11 +1976,12 @@ class RetentionManager(RetentionManagerInterface):
                     )
 
                     if success:
-                        self.state_manager.delete_backup_record(
-                            volume_snapshot.backup_id
-                        )
                         self.logger.info(
                             f"Successfully deleted related volume snapshot {volume_snapshot.backup_id}"
+                        )
+                        # Only delete DB record if OpenStack deletion was successful
+                        self.state_manager.delete_backup_record(
+                            volume_snapshot.backup_id
                         )
                     else:
                         self.logger.error(
