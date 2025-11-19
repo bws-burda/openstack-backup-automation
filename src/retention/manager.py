@@ -339,6 +339,25 @@ class RetentionManager(RetentionManagerInterface):
         # Sort by creation date (oldest first) to maintain backup chain integrity
         backups_to_delete.sort(key=lambda b: b.created_at or self._get_min_datetime())
 
+        # Separate instance snapshots from volume snapshots
+        # Delete instance snapshots first, then volume snapshots (to avoid FK constraints)
+        instance_snapshots = [
+            b
+            for b in backups_to_delete
+            if b.backup_type == BackupType.SNAPSHOT and b.resource_type == "instance"
+        ]
+        volume_snapshots = [
+            b
+            for b in backups_to_delete
+            if b.backup_type == BackupType.SNAPSHOT and b.resource_type == "volume"
+        ]
+        other_backups = [
+            b for b in backups_to_delete if b.backup_type != BackupType.SNAPSHOT
+        ]
+
+        # Process in order: instance snapshots first, then volume snapshots, then other backups
+        backups_to_delete = instance_snapshots + volume_snapshots + other_backups
+
         # Handle full backups with dependents first
         full_backups_with_dependents = []
         standalone_backups = []
