@@ -421,7 +421,7 @@ class StateManager(StateManagerInterface):
             # Ensure timezone-aware datetime (UTC)
             if created_at.tzinfo is None:
                 created_at = created_at.replace(tzinfo=timezone.utc)
-        
+
         return BackupInfo(
             backup_id=row["backup_id"],
             resource_id=row["resource_id"],
