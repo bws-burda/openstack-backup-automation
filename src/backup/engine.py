@@ -514,9 +514,9 @@ class BackupEngine:
                         self.logger.debug(f"No snapshots found for volume {volume_id}")
                         continue
 
-                    # Find snapshot by name pattern: "snapshot vor <instance_snapshot_name>"
+                    # Find snapshot by name pattern: "snapshot for <instance_snapshot_name>"
                     # OpenStack automatically names volume snapshots this way
-                    expected_snapshot_name = f"snapshot vor {instance_snapshot_name}"
+                    expected_snapshot_name = f"snapshot for {instance_snapshot_name}"
 
                     matching_snapshot = None
                     for snapshot in volume_snapshots:
