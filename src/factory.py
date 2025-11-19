@@ -36,7 +36,9 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         full_backup_interval_days=config.backup.full_backup_interval_days,
     )
 
-    retention_manager = RetentionManager(state_manager, openstack_client)
+    retention_manager = RetentionManager(
+        state_manager, openstack_client, timezone_str=config.timezone
+    )
 
     # Create notification service (email is optional)
     notification_service = NotificationService(config.notifications)

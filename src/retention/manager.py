@@ -5,6 +5,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+import pytz
+
 from ..backup.models import BackupInfo, BackupType
 from ..config.models import RetentionPolicy
 from ..interfaces import (
@@ -21,10 +23,28 @@ class RetentionManager(RetentionManagerInterface):
         self,
         state_manager: StateManagerInterface,
         openstack_client: OpenStackClientInterface,
+        timezone_str: str = "UTC",
     ):
         self.state_manager = state_manager
         self.openstack_client = openstack_client
         self.logger = logging.getLogger(__name__)
+
+        # Set timezone from config
+        try:
+            self.tz = pytz.timezone(timezone_str)
+        except pytz.exceptions.UnknownTimeZoneError:
+            self.logger.warning(
+                f"Unknown timezone '{timezone_str}', falling back to UTC"
+            )
+            self.tz = pytz.UTC
+
+    def _get_min_datetime(self) -> datetime:
+        """Get a timezone-aware minimum datetime."""
+        return datetime.min.replace(tzinfo=self.tz)
+
+    def _get_now(self) -> datetime:
+        """Get current time in configured timezone."""
+        return datetime.now(self.tz)
 
     def get_backups_to_delete(
         self, retention_policy: RetentionPolicy
@@ -73,8 +93,12 @@ class RetentionManager(RetentionManagerInterface):
             all_resource_backups = self.state_manager.get_backup_chain(resource_id)
 
             # Sort by creation date
-            all_resource_backups.sort(key=lambda b: b.created_at or datetime.min)
-            resource_backups.sort(key=lambda b: b.created_at or datetime.min)
+            all_resource_backups.sort(
+                key=lambda b: b.created_at or self._get_min_datetime()
+            )
+            resource_backups.sort(
+                key=lambda b: b.created_at or self._get_min_datetime()
+            )
 
             # Apply retention policy rules
             deletable_backups = self._apply_retention_rules(
@@ -173,7 +197,9 @@ class RetentionManager(RetentionManagerInterface):
             return False
 
         # Sort by creation date and check if this is the latest
-        full_backups.sort(key=lambda b: b.created_at or datetime.min, reverse=True)
+        # Use datetime.min with UTC timezone to avoid comparison errors
+        min_datetime = datetime.min.replace(tzinfo=timezone.utc)
+        full_backups.sort(key=lambda b: b.created_at or min_datetime, reverse=True)
         return full_backups[0].backup_id == backup.backup_id
 
     async def delete_backup(self, backup_info: BackupInfo) -> bool:
@@ -311,7 +337,7 @@ class RetentionManager(RetentionManagerInterface):
             return cleanup_result
 
         # Sort by creation date (oldest first) to maintain backup chain integrity
-        backups_to_delete.sort(key=lambda b: b.created_at or datetime.min)
+        backups_to_delete.sort(key=lambda b: b.created_at or self._get_min_datetime())
 
         # Handle full backups with dependents first
         full_backups_with_dependents = []
@@ -461,11 +487,11 @@ class RetentionManager(RetentionManagerInterface):
         if not backup_info.created_at:
             return 0
 
-        now = datetime.now(timezone.utc)
+        now = self._get_now()
         # Ensure both datetimes are timezone-aware
         backup_time = backup_info.created_at
         if backup_time.tzinfo is None:
-            backup_time = backup_time.replace(tzinfo=timezone.utc)
+            backup_time = backup_time.replace(tzinfo=self.tz)
 
         age = now - backup_time
         return age.days
@@ -615,7 +641,7 @@ class RetentionManager(RetentionManagerInterface):
             }
 
         # Sort by creation date
-        all_backups.sort(key=lambda b: b.created_at or datetime.min)
+        all_backups.sort(key=lambda b: b.created_at or self._get_min_datetime())
 
         # Calculate statistics
         full_backups = [b for b in all_backups if b.backup_type == BackupType.FULL]
@@ -671,7 +697,7 @@ class RetentionManager(RetentionManagerInterface):
         """
         operation_plan = {
             "dry_run": dry_run,
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": self._get_now(),
             "policies_applied": list(retention_policies.keys()),
             "total_candidates": 0,
             "safe_deletions": [],
@@ -923,7 +949,7 @@ class RetentionManager(RetentionManagerInterface):
             # No creation date, assume we need a new one
             return True
 
-        now = datetime.now(timezone.utc)
+        now = self._get_now()
         days_since_last_full = (now - last_full_backup.created_at).days
 
         should_create = days_since_last_full >= full_backup_interval
@@ -982,7 +1008,7 @@ class RetentionManager(RetentionManagerInterface):
         strategy["last_full_backup_id"] = last_full_backup.backup_id
 
         if last_full_backup.created_at:
-            now = datetime.now(timezone.utc)
+            now = self._get_now()
             days_since_last_full = (now - last_full_backup.created_at).days
             strategy["days_since_last_full"] = days_since_last_full
 
@@ -1097,8 +1123,12 @@ class RetentionManager(RetentionManagerInterface):
             all_resource_backups = self.state_manager.get_backup_chain(resource_id)
 
             # Sort by creation date
-            all_resource_backups.sort(key=lambda b: b.created_at or datetime.min)
-            resource_backups.sort(key=lambda b: b.created_at or datetime.min)
+            all_resource_backups.sort(
+                key=lambda b: b.created_at or self._get_min_datetime()
+            )
+            resource_backups.sort(
+                key=lambda b: b.created_at or self._get_min_datetime()
+            )
 
             # Process each backup with its specific retention policy
             for backup in resource_backups:
@@ -1384,7 +1414,7 @@ class RetentionManager(RetentionManagerInterface):
 
                 # Sort dependents by creation date (newest first to avoid breaking chains)
                 dependents.sort(
-                    key=lambda b: b.created_at or datetime.min, reverse=True
+                    key=lambda b: b.created_at or self._get_min_datetime(), reverse=True
                 )
 
                 # Delete all dependents first
@@ -1634,7 +1664,9 @@ class RetentionManager(RetentionManagerInterface):
         }
 
         # Sort backups by creation date (newest first to maintain chain integrity)
-        chain_backups.sort(key=lambda b: b.created_at or datetime.min, reverse=True)
+        chain_backups.sort(
+            key=lambda b: b.created_at or self._get_min_datetime(), reverse=True
+        )
 
         for backup in chain_backups:
             try:
@@ -1843,14 +1875,14 @@ class RetentionManager(RetentionManagerInterface):
             return []
 
         candidates = []
-        now = datetime.now(timezone.utc)
+        now = self._get_now()
 
         for backup in backups:
             if backup.created_at:
                 # Ensure both datetimes are timezone-aware
                 backup_time = backup.created_at
                 if backup_time.tzinfo is None:
-                    backup_time = backup_time.replace(tzinfo=timezone.utc)
+                    backup_time = backup_time.replace(tzinfo=self.tz)
 
                 age_days = (now - backup_time).days
                 if age_days > retention_days:

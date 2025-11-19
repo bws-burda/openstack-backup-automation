@@ -2,3 +2,4 @@
 openstacksdk>=1.0.0
 PyYAML>=6.0
 click>=8.0.0
+pytz>=2025.1
