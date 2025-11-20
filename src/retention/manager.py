@@ -1977,12 +1977,16 @@ class RetentionManager(RetentionManagerInterface):
             policy = retention_policies.get("default")
             return policy.retention_days if policy else 30
 
-    async def _delete_related_volume_snapshots(self, instance_snapshot_id: str) -> None:
+    async def _delete_related_volume_snapshots(self, instance_snapshot_id: str) -> int:
         """Delete all volume snapshots related to an instance snapshot.
 
         Args:
             instance_snapshot_id: ID of the instance snapshot
+
+        Returns:
+            Number of successfully deleted volume snapshots
         """
+        deleted_count = 0
         try:
             # Find all volume snapshots related to this instance snapshot
             all_backups = self.state_manager.get_all_backups()
@@ -1996,7 +2000,7 @@ class RetentionManager(RetentionManagerInterface):
                 self.logger.debug(
                     f"No related volume snapshots found for instance snapshot {instance_snapshot_id}"
                 )
-                return
+                return 0
 
             self.logger.info(
                 f"Found {len(related_snapshots)} related volume snapshots for instance snapshot {instance_snapshot_id}"
@@ -2022,6 +2026,7 @@ class RetentionManager(RetentionManagerInterface):
                         self.state_manager.delete_backup_record(
                             volume_snapshot.backup_id
                         )
+                        deleted_count += 1
                     else:
                         self.logger.error(
                             f"Failed to delete related volume snapshot {volume_snapshot.backup_id}"
@@ -2032,7 +2037,10 @@ class RetentionManager(RetentionManagerInterface):
                         f"Exception while deleting related volume snapshot {volume_snapshot.backup_id}: {e}"
                     )
 
+            return deleted_count
+
         except Exception as e:
             self.logger.error(
                 f"Exception while deleting related volume snapshots for instance snapshot {instance_snapshot_id}: {e}"
             )
+            return deleted_count
