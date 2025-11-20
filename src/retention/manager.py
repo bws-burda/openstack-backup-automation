@@ -144,6 +144,18 @@ class RetentionManager(RetentionManagerInterface):
             can_delete = True
             skip_reason = None
 
+            # Skip volume snapshots that have a related instance snapshot
+            # They will be deleted automatically when the instance snapshot is deleted
+            if (
+                backup.backup_type == BackupType.SNAPSHOT
+                and backup.resource_type == "volume"
+                and backup.related_instance_snapshot_id
+            ):
+                self.logger.debug(
+                    f"Skipping volume snapshot {backup.backup_id} - will be deleted with related instance snapshot {backup.related_instance_snapshot_id}"
+                )
+                continue
+
             # Rule 1: Always keep at least 1 backup
             remaining_after_deletion = total_backups - len(deletable) - 1
             if remaining_after_deletion < 1:
