@@ -373,10 +373,14 @@ class RetentionManager(RetentionManagerInterface):
             for b in backups_to_delete
             if b.backup_type == BackupType.SNAPSHOT and b.resource_type == "instance"
         ]
+        # Filter out volume snapshots that are related to instance snapshots
+        # (they will be deleted automatically when the instance snapshot is deleted)
         volume_snapshots = [
             b
             for b in backups_to_delete
-            if b.backup_type == BackupType.SNAPSHOT and b.resource_type == "volume"
+            if b.backup_type == BackupType.SNAPSHOT
+            and b.resource_type == "volume"
+            and not b.related_instance_snapshot_id  # Exclude related volume snapshots
         ]
         other_backups = [
             b for b in backups_to_delete if b.backup_type != BackupType.SNAPSHOT
