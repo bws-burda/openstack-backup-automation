@@ -1162,6 +1162,7 @@ class RetentionManager(RetentionManagerInterface):
             backups_by_resource[resource_id].append(backup)
 
         backups_to_delete = []
+        deleted_backup_ids = set()  # Track backup IDs to avoid duplicates
 
         for resource_id, resource_backups in backups_by_resource.items():
             self.logger.debug(
@@ -1208,11 +1209,14 @@ class RetentionManager(RetentionManagerInterface):
                 if self._is_backup_deletable_under_policy(
                     backup, all_resource_backups, effective_policy
                 ):
-                    backups_to_delete.append(backup)
-                    self.logger.debug(
-                        f"Backup {backup.backup_id} marked for deletion "
-                        f"(retention: {retention_days}d)"
-                    )
+                    # Only add if not already marked for deletion
+                    if backup.backup_id not in deleted_backup_ids:
+                        backups_to_delete.append(backup)
+                        deleted_backup_ids.add(backup.backup_id)
+                        self.logger.debug(
+                            f"Backup {backup.backup_id} marked for deletion "
+                            f"(retention: {retention_days}d)"
+                        )
 
                     # If this is an instance snapshot, also mark all related volume snapshots for deletion
                     if (
@@ -1227,8 +1231,10 @@ class RetentionManager(RetentionManagerInterface):
                             if b.related_instance_snapshot_id == backup.backup_id
                         ]
                         for volume_snapshot in related_volume_snapshots:
-                            if volume_snapshot not in backups_to_delete:
+                            # Only add if not already marked for deletion
+                            if volume_snapshot.backup_id not in deleted_backup_ids:
                                 backups_to_delete.append(volume_snapshot)
+                                deleted_backup_ids.add(volume_snapshot.backup_id)
                                 self.logger.debug(
                                     f"Also marking related volume snapshot {volume_snapshot.backup_id} "
                                     f"for deletion (related to instance snapshot)"
