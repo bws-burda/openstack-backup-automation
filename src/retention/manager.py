@@ -1230,27 +1230,8 @@ class RetentionManager(RetentionManagerInterface):
                             f"(retention: {retention_days}d)"
                         )
 
-                    # If this is an instance snapshot, also mark all related volume snapshots for deletion
-                    if (
-                        backup.backup_type == BackupType.SNAPSHOT
-                        and backup.resource_type == "instance"
-                    ):
-                        # Find all volume snapshots related to this instance snapshot
-                        all_backups = self.state_manager.get_all_backups()
-                        related_volume_snapshots = [
-                            b
-                            for b in all_backups
-                            if b.related_instance_snapshot_id == backup.backup_id
-                        ]
-                        for volume_snapshot in related_volume_snapshots:
-                            # Only add if not already marked for deletion
-                            if volume_snapshot.backup_id not in deleted_backup_ids:
-                                backups_to_delete.append(volume_snapshot)
-                                deleted_backup_ids.add(volume_snapshot.backup_id)
-                                self.logger.debug(
-                                    f"Also marking related volume snapshot {volume_snapshot.backup_id} "
-                                    f"for deletion (related to instance snapshot)"
-                                )
+                    # Note: Related volume snapshots will be deleted automatically by _delete_related_volume_snapshots()
+                    # when the instance snapshot is deleted. We don't add them to the deletion list here.
 
         self.logger.info(
             f"Total backups marked for deletion with tag policies: {len(backups_to_delete)}"
