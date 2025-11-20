@@ -332,8 +332,23 @@ class RetentionManager(RetentionManagerInterface):
 
         # If dry-run, stop here
         if dry_run:
-            cleanup_result["deleted_count"] = len(backups_to_delete)
-            self.logger.info(f"DRY RUN: Would delete {len(backups_to_delete)} backups")
+            # Count only instance snapshots (volume snapshots are counted as part of instance)
+            instance_snapshot_count = sum(
+                1
+                for b in backups_to_delete
+                if b.backup_type == BackupType.SNAPSHOT
+                and b.resource_type == "instance"
+            )
+            # Also count non-snapshot backups
+            other_backup_count = sum(
+                1 for b in backups_to_delete if b.backup_type != BackupType.SNAPSHOT
+            )
+            cleanup_result["deleted_count"] = (
+                instance_snapshot_count + other_backup_count
+            )
+            self.logger.info(
+                f"DRY RUN: Would delete {cleanup_result['deleted_count']} backups"
+            )
             return cleanup_result
 
         # Sort by creation date (oldest first) to maintain backup chain integrity
@@ -485,6 +500,18 @@ class RetentionManager(RetentionManagerInterface):
                             f"Exception while deleting backup {backup.backup_id}: {e}"
                         )
                         cleanup_result["failed_count"] += 1
+
+        # Count only instance snapshots (volume snapshots are counted as part of instance)
+        # and other non-snapshot backups
+        instance_snapshot_count = sum(
+            1
+            for b in backups_to_delete
+            if b.backup_type == BackupType.SNAPSHOT and b.resource_type == "instance"
+        )
+        other_backup_count = sum(
+            1 for b in backups_to_delete if b.backup_type != BackupType.SNAPSHOT
+        )
+        cleanup_result["deleted_count"] = instance_snapshot_count + other_backup_count
 
         self.logger.info(
             f"Cleanup completed: {cleanup_result['deleted_count']} deleted, "
