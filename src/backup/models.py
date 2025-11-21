@@ -35,7 +35,6 @@ class BackupInfo:
     parent_backup_id: Optional[str] = None
     created_at: Optional[datetime] = None
     verified: bool = False
-    size_bytes: Optional[int] = None
     schedule_tag: Optional[str] = None
     retention_days: Optional[int] = None  # Retention policy at time of backup creation
     related_instance_snapshot_id: Optional[str] = (

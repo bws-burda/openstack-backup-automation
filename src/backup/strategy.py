@@ -78,19 +78,30 @@ class BackupStrategy:
         if backup_type == BackupType.FULL:
             return None
 
-        # For incremental backups, find the most recent backup (full or incremental)
-        last_backup = self.state_manager.get_last_backup(resource_id)
+        # For incremental backups, find the most recent FULL backup (not snapshot or other types)
+        all_backups = self.state_manager.get_all_backups()
+        full_backups = [
+            b
+            for b in all_backups
+            if b.resource_id == resource_id
+            and b.backup_type == BackupType.FULL
+            and b.verified
+        ]
 
-        if last_backup and last_backup.verified:
+        if full_backups:
+            # Get the most recent full backup
+            last_full_backup = max(
+                full_backups, key=lambda b: b.created_at or datetime(1970, 1, 1)
+            )
             self.logger.debug(
-                f"Using parent backup {last_backup.backup_id} for incremental backup "
+                f"Using parent backup {last_full_backup.backup_id} for incremental backup "
                 f"of resource {resource_id}"
             )
-            return last_backup.backup_id
+            return last_full_backup.backup_id
 
-        # If no verified backup exists, we need a full backup instead
+        # If no verified full backup exists, we need a full backup instead
         self.logger.warning(
-            f"No verified parent backup found for resource {resource_id}, "
+            f"No verified full backup found for resource {resource_id}, "
             "full backup required"
         )
         return None

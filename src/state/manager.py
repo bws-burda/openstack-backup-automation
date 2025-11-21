@@ -70,9 +70,9 @@ class StateManager(StateManagerInterface):
                 """
                 INSERT INTO backups (
                     backup_id, resource_id, resource_type, backup_type,
-                    parent_backup_id, created_at, verified, size_bytes, schedule_tag, retention_days,
+                    parent_backup_id, created_at, verified, schedule_tag, retention_days,
                     related_instance_snapshot_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     backup_info.backup_id,
@@ -82,7 +82,6 @@ class StateManager(StateManagerInterface):
                     backup_info.parent_backup_id,
                     backup_info.created_at or datetime.now(timezone.utc),
                     backup_info.verified,
-                    backup_info.size_bytes,
                     backup_info.schedule_tag or "",
                     backup_info.retention_days,
                     backup_info.related_instance_snapshot_id,
@@ -104,7 +103,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
@@ -132,7 +131,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
@@ -160,7 +159,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE created_at < ?
@@ -181,7 +180,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 ORDER BY created_at ASC
@@ -206,7 +205,7 @@ class StateManager(StateManagerInterface):
                 WITH RECURSIVE backup_chain AS (
                     -- Start with direct children
                     SELECT backup_id, resource_id, resource_type, backup_type,
-                           parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                           parent_backup_id, created_at, verified, schedule_tag,
                            retention_days, related_instance_snapshot_id
                     FROM backups
                     WHERE parent_backup_id = ?
@@ -215,7 +214,7 @@ class StateManager(StateManagerInterface):
 
                     -- Recursively find children of children
                     SELECT b.backup_id, b.resource_id, b.resource_type, b.backup_type,
-                           b.parent_backup_id, b.created_at, b.verified, b.size_bytes, b.schedule_tag,
+                           b.parent_backup_id, b.created_at, b.verified, b.schedule_tag,
                            b.retention_days, b.related_instance_snapshot_id
                     FROM backups b
                     INNER JOIN backup_chain bc ON b.parent_backup_id = bc.backup_id
@@ -272,7 +271,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE backup_id = ?
@@ -298,7 +297,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ? AND backup_type = 'full'
@@ -334,7 +333,7 @@ class StateManager(StateManagerInterface):
             cursor = conn.execute(
                 """
                 SELECT backup_id, resource_id, resource_type, backup_type,
-                       parent_backup_id, created_at, verified, size_bytes, schedule_tag,
+                       parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 WHERE resource_id = ?
@@ -400,12 +399,8 @@ class StateManager(StateManagerInterface):
                 0, 0
             )  # SQLite uses 0 for False
 
-            # Total storage used (if size information is available)
-            cursor = conn.execute(
-                "SELECT SUM(size_bytes) FROM backups WHERE size_bytes IS NOT NULL"
-            )
-            total_size = cursor.fetchone()[0]
-            stats["total_size_bytes"] = total_size or 0
+            # Total storage used (size information no longer tracked)
+            stats["total_size_bytes"] = 0
 
             # Active resources
             cursor = conn.execute("SELECT COUNT(*) FROM resources WHERE active = TRUE")
@@ -467,7 +462,6 @@ class StateManager(StateManagerInterface):
             parent_backup_id=row["parent_backup_id"],
             created_at=created_at,
             verified=bool(row["verified"]),
-            size_bytes=row["size_bytes"],
             schedule_tag=row["schedule_tag"],
             retention_days=row["retention_days"],
             related_instance_snapshot_id=row["related_instance_snapshot_id"],

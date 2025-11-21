@@ -460,9 +460,6 @@ class RetentionManager(RetentionManagerInterface):
                         if await self.delete_backup(incremental):
                             chain_result["dependents_deleted"] += 1
                             cleanup_result["deleted_count"] += 1
-                            cleanup_result["space_freed_bytes"] += (
-                                incremental.size_bytes or 0
-                            )
                         else:
                             cleanup_result["failed_count"] += 1
                             chain_result["errors"].append(
@@ -473,7 +470,6 @@ class RetentionManager(RetentionManagerInterface):
                 if await self.delete_backup(full_backup):
                     chain_result["full_backup_deleted"] = True
                     cleanup_result["deleted_count"] += 1
-                    cleanup_result["space_freed_bytes"] += full_backup.size_bytes or 0
                 else:
                     cleanup_result["failed_count"] += 1
                     chain_result["errors"].append(
@@ -729,7 +725,6 @@ class RetentionManager(RetentionManagerInterface):
         ]
         snapshots = [b for b in all_backups if b.backup_type == BackupType.SNAPSHOT]
 
-        total_size = sum(b.size_bytes or 0 for b in all_backups)
         verified_count = sum(1 for b in all_backups if b.verified)
 
         # Analyze chains
@@ -742,8 +737,6 @@ class RetentionManager(RetentionManagerInterface):
                 "root_backup_id": full_backup.backup_id,
                 "root_created_at": full_backup.created_at,
                 "incremental_count": len(dependents),
-                "chain_size_bytes": (full_backup.size_bytes or 0)
-                + sum(d.size_bytes or 0 for d in dependents),
                 "all_verified": full_backup.verified
                 and all(d.verified for d in dependents),
             }
@@ -757,7 +750,6 @@ class RetentionManager(RetentionManagerInterface):
             "snapshots": len(snapshots),
             "oldest_backup": all_backups[0].created_at if all_backups else None,
             "newest_backup": all_backups[-1].created_at if all_backups else None,
-            "total_size_bytes": total_size,
             "verified_backups": verified_count,
             "chains": chains,
         }
@@ -810,13 +802,11 @@ class RetentionManager(RetentionManagerInterface):
                 "backup_type": candidate.backup_type.value,
                 "created_at": candidate.created_at,
                 "age_days": self.calculate_backup_age(candidate),
-                "size_bytes": candidate.size_bytes or 0,
                 "safety_check": safety_check,
             }
 
             if safety_check["safe"]:
                 operation_plan["safe_deletions"].append(deletion_info)
-                operation_plan["estimated_space_freed"] += deletion_info["size_bytes"]
             else:
                 operation_plan["unsafe_deletions"].append(deletion_info)
 
@@ -902,7 +892,6 @@ class RetentionManager(RetentionManagerInterface):
                                 "size_bytes": backup.size_bytes or 0,
                             }
                         )
-                        batch_result["space_freed_bytes"] += backup.size_bytes or 0
                         self.logger.debug(
                             f"Successfully deleted backup {backup.backup_id}"
                         )
@@ -1767,9 +1756,6 @@ class RetentionManager(RetentionManagerInterface):
 
         for backup in chain_backups:
             try:
-                # Calculate space that will be freed
-                space_to_free = backup.size_bytes or 0
-
                 # Perform chain-aware deletion
                 deletion_result = await self.delete_backup_chain_aware(
                     backup, force=False
@@ -1779,7 +1765,6 @@ class RetentionManager(RetentionManagerInterface):
                     chain_result["deleted_backups"].extend(
                         deletion_result["deleted_backups"]
                     )
-                    chain_result["space_freed_bytes"] += space_to_free
                 else:
                     chain_result["failed_deletions"].extend(
                         deletion_result["failed_deletions"]
@@ -1931,8 +1916,6 @@ class RetentionManager(RetentionManagerInterface):
                 "incremental_count": len(chain_incrementals),
                 "chain_length": 1 + len(chain_incrementals),
                 "is_complete": True,  # All incrementals have valid parents
-                "total_size_bytes": (full_backup.size_bytes or 0)
-                + sum(i.size_bytes or 0 for i in chain_incrementals),
             }
 
             chains.append(chain_info)

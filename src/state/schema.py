@@ -39,7 +39,6 @@ class DatabaseSchema:
             parent_backup_id TEXT,
             created_at TIMESTAMP NOT NULL,
             verified BOOLEAN DEFAULT FALSE,
-            size_bytes INTEGER,
             schedule_tag TEXT NOT NULL,
             retention_days INTEGER,
             related_instance_snapshot_id TEXT,
