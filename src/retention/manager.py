@@ -249,6 +249,19 @@ class RetentionManager(RetentionManagerInterface):
                 ):
                     await self._delete_related_volume_snapshots(backup_info.backup_id)
 
+                    # Delete DB records of related volume snapshots BEFORE deleting the instance snapshot
+                    # This avoids FK constraint violations
+                    all_backups = self.state_manager.get_all_backups()
+                    related_snapshots = [
+                        b
+                        for b in all_backups
+                        if b.related_instance_snapshot_id == backup_info.backup_id
+                    ]
+                    for volume_snapshot in related_snapshots:
+                        self.state_manager.delete_backup_record(
+                            volume_snapshot.backup_id
+                        )
+
                 # Remove from database AFTER all related deletions are done
                 self.state_manager.delete_backup_record(backup_info.backup_id)
                 return True
@@ -2044,7 +2057,8 @@ class RetentionManager(RetentionManagerInterface):
                 f"Found {len(related_snapshots)} related volume snapshots for instance snapshot {instance_snapshot_id}"
             )
 
-            # Delete each related volume snapshot
+            # Delete each related volume snapshot from OpenStack only
+            # DB records will be deleted after the instance snapshot is deleted
             for volume_snapshot in related_snapshots:
                 try:
                     self.logger.info(
@@ -2059,10 +2073,6 @@ class RetentionManager(RetentionManagerInterface):
                     if success:
                         self.logger.info(
                             f"Successfully deleted related volume snapshot {volume_snapshot.backup_id}"
-                        )
-                        # Only delete DB record if OpenStack deletion was successful
-                        self.state_manager.delete_backup_record(
-                            volume_snapshot.backup_id
                         )
                     else:
                         self.logger.error(
