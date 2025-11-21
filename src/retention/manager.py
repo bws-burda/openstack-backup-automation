@@ -515,9 +515,6 @@ class RetentionManager(RetentionManagerInterface):
                     try:
                         if await self.delete_backup(backup):
                             cleanup_result["deleted_count"] += 1
-                            cleanup_result["space_freed_bytes"] += (
-                                backup.size_bytes or 0
-                            )
                         else:
                             cleanup_result["failed_count"] += 1
                     except Exception as e:
@@ -889,7 +886,6 @@ class RetentionManager(RetentionManagerInterface):
                                 "backup_id": backup.backup_id,
                                 "backup_type": backup.backup_type.value,
                                 "resource_id": backup.resource_id,
-                                "size_bytes": backup.size_bytes or 0,
                             }
                         )
                         self.logger.debug(
