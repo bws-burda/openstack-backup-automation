@@ -377,9 +377,9 @@ class TagScanner:
             if current_time < scheduled_time:
                 return False
 
-            # Check if we already did a backup this week
-            days_since_last = (now - resource.last_backup).days
-            return days_since_last >= 7
+            # If it's the right weekday and we're past the scheduled time, we're due
+            # (regardless of whether a backup was already done today)
+            return True
 
         return False
 

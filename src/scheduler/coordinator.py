@@ -340,7 +340,11 @@ class ExecutionCoordinator:
             # BACKUP tags only create volume backups
             if resource.type.value == "volume":
                 # Use backup strategy to determine type (full or incremental)
-                backup_type = self.backup_engine.determine_backup_type(resource.id)
+                # Pass the full_backup_interval_days from the tag if specified
+                backup_type = self.backup_engine.determine_backup_type(
+                    resource.id, 
+                    full_backup_interval_days=resource.schedule_info.full_backup_interval_days
+                )
                 parent_backup_id = None
                 if backup_type == BackupType.INCREMENTAL:
                     parent_backup_id = self.backup_engine.get_parent_backup_id(

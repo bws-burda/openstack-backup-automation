@@ -32,15 +32,19 @@ class BackupStrategy:
         # Initialize chain manager
         self.chain_manager = BackupChainManager(state_manager)
 
-    def determine_backup_type(self, resource_id: str) -> BackupType:
+    def determine_backup_type(self, resource_id: str, full_backup_interval_days: Optional[int] = None) -> BackupType:
         """Determine whether to create a full or incremental backup.
 
         Args:
             resource_id: ID of the resource to backup
+            full_backup_interval_days: Override for full backup interval (from tag FULL{X}). If None, uses config default.
 
         Returns:
             BackupType indicating whether to create full or incremental backup
         """
+        # Use tag-specified interval if provided, otherwise use config default
+        interval_days = full_backup_interval_days if full_backup_interval_days is not None else self.full_backup_interval_days
+        
         # Get the last full backup for this resource
         last_full_backup = self.state_manager.get_last_full_backup(resource_id)
 
@@ -52,9 +56,9 @@ class BackupStrategy:
             return BackupType.FULL
 
         # Check if it's time for a new full backup based on interval
-        if self._is_full_backup_due(last_full_backup):
+        if self._is_full_backup_due(last_full_backup, interval_days):
             self.logger.info(
-                f"Full backup interval ({self.full_backup_interval_days} days) reached "
+                f"Full backup interval ({interval_days} days) reached "
                 f"for resource {resource_id}, creating full backup"
             )
             return BackupType.FULL
@@ -136,11 +140,12 @@ class BackupStrategy:
         """
         return self.chain_manager.get_chain_statistics(resource_id)
 
-    def _is_full_backup_due(self, last_full_backup: BackupInfo) -> bool:
+    def _is_full_backup_due(self, last_full_backup: BackupInfo, interval_days: Optional[int] = None) -> bool:
         """Check if a full backup is due based on the interval.
 
         Args:
             last_full_backup: Information about the last full backup
+            interval_days: Override for full backup interval. If None, uses config default.
 
         Returns:
             True if a full backup is due, False otherwise
@@ -148,10 +153,13 @@ class BackupStrategy:
         if not last_full_backup.created_at:
             return True
 
+        # Use provided interval or fall back to config default
+        check_interval = interval_days if interval_days is not None else self.full_backup_interval_days
+        
         days_since_full = (
             datetime.now(timezone.utc) - last_full_backup.created_at
         ).days
-        return days_since_full >= self.full_backup_interval_days
+        return days_since_full >= check_interval
 
     def calculate_next_full_backup_date(self, resource_id: str) -> Optional[datetime]:
         """Calculate when the next full backup should be created.
