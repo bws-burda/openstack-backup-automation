@@ -230,10 +230,18 @@ def health(ctx, output_json, component, export):
         click.echo(f"Error: Configuration file not found: {config_path}", err=True)
         sys.exit(1)
     try:
+        import pytz
+
+        from ..config.manager import ConfigurationManager
         from ..factory import (
             create_health_checker_from_config,
             create_status_reporter_from_config,
         )
+
+        # Load config to get timezone
+        config_manager = ConfigurationManager()
+        config = config_manager.load_config(config_path)
+        tz = pytz.timezone(config.timezone)
 
         async def check_health():
             health_checker = create_health_checker_from_config(config_path)
@@ -249,11 +257,14 @@ def health(ctx, output_json, component, export):
                 if output_json:
                     import json
 
+                    # Convert timestamp to configured timezone
+                    last_check_local = component_health.last_check.astimezone(tz)
+
                     result = {
                         "component": component_health.name,
                         "status": component_health.status.value,
                         "message": component_health.message,
-                        "last_check": component_health.last_check.isoformat(),
+                        "last_check": last_check_local.isoformat(),
                         "details": component_health.details,
                     }
                     click.echo(json.dumps(result, indent=2))
@@ -263,10 +274,16 @@ def health(ctx, output_json, component, export):
                         if component_health.is_healthy()
                         else "⚠" if component_health.is_degraded() else "✗"
                     )
+                    # Convert timestamp to configured timezone
+                    last_check_local = component_health.last_check.astimezone(tz)
+
                     click.echo(
                         f"{status_symbol} {component_health.name}: {component_health.status.value}"
                     )
                     click.echo(f"  Message: {component_health.message}")
+                    click.echo(
+                        f"  Last Check: {last_check_local.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                    )
                     if component_health.details:
                         click.echo(f"  Details: {component_health.details}")
             else:
@@ -293,14 +310,16 @@ def health(ctx, output_json, component, export):
                             else "✗"
                         )
                     )
+                    # Convert timestamp to configured timezone
+                    timestamp_local = system_status.timestamp.astimezone(tz)
+
                     click.echo("=== System Health Status ===")
                     click.echo(
                         f"{overall_symbol} Overall Status: {system_status.overall_status.value.upper()}"
                     )
-                    if system_status.uptime_seconds:
-                        uptime_hours = system_status.uptime_seconds / 3600
-                        click.echo(f"Uptime: {uptime_hours:.1f} hours")
-                    click.echo(f"Timestamp: {system_status.timestamp.isoformat()}")
+                    click.echo(
+                        f"Timestamp: {timestamp_local.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                    )
                     click.echo("")
                     click.echo("Component Status:")
                     for comp in system_status.components:
@@ -309,8 +328,10 @@ def health(ctx, output_json, component, export):
                             if comp.is_healthy()
                             else "⚠" if comp.is_degraded() else "✗"
                         )
+                        # Convert component last_check to configured timezone
+                        comp_last_check = comp.last_check.astimezone(tz)
                         click.echo(
-                            f"  {comp_symbol} {comp.name}: {comp.status.value} - {comp.message}"
+                            f"  {comp_symbol} {comp.name}: {comp.status.value} - {comp.message} (checked: {comp_last_check.strftime('%H:%M:%S')})"
                         )
                     # Show recommendations if any
                     report = status_reporter.generate_health_report(system_status)

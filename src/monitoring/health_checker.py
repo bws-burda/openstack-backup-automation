@@ -6,7 +6,7 @@ import os
 import shutil
 import sqlite3
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from ..interfaces import OpenStackClientInterface, StateManagerInterface
@@ -72,7 +72,7 @@ class HealthChecker:
         return SystemStatus(
             overall_status=overall_status,
             components=components,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             uptime_seconds=time.time() - self.start_time,
         )
 
@@ -116,7 +116,7 @@ class HealthChecker:
             name="database",
             status=status,
             message=message,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             details=details,
         )
 
@@ -168,7 +168,7 @@ class HealthChecker:
             name="openstack_api",
             status=status,
             message=message,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             details=details,
         )
 
@@ -214,7 +214,7 @@ class HealthChecker:
             name="openstack_quotas",
             status=status,
             message=message,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             details=details,
         )
 
@@ -260,7 +260,7 @@ class HealthChecker:
             name="local_storage",
             status=status,
             message=message,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             details=details,
         )
 
