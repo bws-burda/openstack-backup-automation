@@ -95,6 +95,14 @@ backup:
 
 ---
 
+### 2. Multi Tagging Ressources
+
+**Status:** Not implemented
+
+**Goal:** Use multiple tags on the same ressource.
+
+---
+
 ## Contributing
 
 Have ideas for new features? Open an issue or submit a pull request!
