@@ -95,11 +95,14 @@ backup:
 
 ---
 
-### 2. Multi Tagging Ressources
+### 3. Multi Tagging Ressources
 
 **Status:** Not implemented
 
 **Goal:** Use multiple tags on the same ressource.
+
+**Benefits:**
+- More complex requirements can be met.
 
 ---
 
