@@ -322,7 +322,9 @@ class BackupEngine:
 
         return result
 
-    def determine_backup_type(self, resource_id: str, full_backup_interval_days: Optional[int] = None) -> BackupType:
+    def determine_backup_type(
+        self, resource_id: str, full_backup_interval_days: Optional[int] = None
+    ) -> BackupType:
         """Determine the appropriate backup type for a resource.
 
         Args:
@@ -332,7 +334,9 @@ class BackupEngine:
         Returns:
             BackupType indicating whether to create full or incremental backup
         """
-        return self.backup_strategy.determine_backup_type(resource_id, full_backup_interval_days)
+        return self.backup_strategy.determine_backup_type(
+            resource_id, full_backup_interval_days
+        )
 
     def get_parent_backup_id(
         self, resource_id: str, backup_type: BackupType

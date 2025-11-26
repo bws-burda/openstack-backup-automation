@@ -32,7 +32,9 @@ class BackupStrategy:
         # Initialize chain manager
         self.chain_manager = BackupChainManager(state_manager)
 
-    def determine_backup_type(self, resource_id: str, full_backup_interval_days: Optional[int] = None) -> BackupType:
+    def determine_backup_type(
+        self, resource_id: str, full_backup_interval_days: Optional[int] = None
+    ) -> BackupType:
         """Determine whether to create a full or incremental backup.
 
         Args:
@@ -43,8 +45,12 @@ class BackupStrategy:
             BackupType indicating whether to create full or incremental backup
         """
         # Use tag-specified interval if provided, otherwise use config default
-        interval_days = full_backup_interval_days if full_backup_interval_days is not None else self.full_backup_interval_days
-        
+        interval_days = (
+            full_backup_interval_days
+            if full_backup_interval_days is not None
+            else self.full_backup_interval_days
+        )
+
         # Get the last full backup for this resource
         last_full_backup = self.state_manager.get_last_full_backup(resource_id)
 
@@ -140,7 +146,9 @@ class BackupStrategy:
         """
         return self.chain_manager.get_chain_statistics(resource_id)
 
-    def _is_full_backup_due(self, last_full_backup: BackupInfo, interval_days: Optional[int] = None) -> bool:
+    def _is_full_backup_due(
+        self, last_full_backup: BackupInfo, interval_days: Optional[int] = None
+    ) -> bool:
         """Check if a full backup is due based on the interval.
 
         Args:
@@ -154,8 +162,12 @@ class BackupStrategy:
             return True
 
         # Use provided interval or fall back to config default
-        check_interval = interval_days if interval_days is not None else self.full_backup_interval_days
-        
+        check_interval = (
+            interval_days
+            if interval_days is not None
+            else self.full_backup_interval_days
+        )
+
         days_since_full = (
             datetime.now(timezone.utc) - last_full_backup.created_at
         ).days

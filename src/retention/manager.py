@@ -1366,14 +1366,35 @@ class RetentionManager(RetentionManagerInterface):
                     # Parent is gone, this incremental is orphaned and can be deleted
                     return True
 
-                # Check if deleting this incremental would orphan other incrementals
-                dependent_incrementals = [
-                    b
-                    for b in all_backups
-                    if b.backup_type == BackupType.INCREMENTAL
-                    and b.parent_backup_id == backup.backup_id
-                ]
-                if dependent_incrementals:
+                # Check if deleting this incremental would break the chain for any descendants
+                # We need to find ALL incrementals that depend on this one (directly or indirectly)
+                def has_descendants(backup_id: str) -> bool:
+                    """Check if any incremental has this backup as an ancestor in the chain."""
+                    for b in all_backups:
+                        if (
+                            b.backup_type == BackupType.INCREMENTAL
+                            and b.backup_id != backup_id
+                        ):
+                            # Trace back the chain to see if this backup is an ancestor
+                            current = b
+                            while current.parent_backup_id:
+                                if current.parent_backup_id == backup_id:
+                                    return True
+                                # Find the parent backup
+                                parent = next(
+                                    (
+                                        p
+                                        for p in all_backups
+                                        if p.backup_id == current.parent_backup_id
+                                    ),
+                                    None,
+                                )
+                                if not parent:
+                                    break
+                                current = parent
+                    return False
+
+                if has_descendants(backup.backup_id):
                     return (
                         False  # Don't delete if other incrementals depend on this one
                     )
