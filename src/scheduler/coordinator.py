@@ -243,7 +243,11 @@ class ExecutionCoordinator:
     async def _execute_backup_operations(
         self, resources: List[ScheduledResource], context: BackupContext
     ) -> List[OperationResult]:
-        """Execute backup operations for due resources."""
+        """Execute backup operations for due resources.
+
+        Operations are prioritized: Snapshots first, then Backups.
+        This prevents resource contention when multiple operations are due for the same resource.
+        """
         if not resources:
             return []
 
@@ -262,12 +266,31 @@ class ExecutionCoordinator:
             self.logger.warning("No valid backup operations could be created")
             return []
 
+        # Sort operations: Snapshots first, then Backups
+        # This ensures snapshots complete before backups start, reducing resource contention
+        from ..backup.models import OperationType
+
+        snapshot_operations = [
+            op for op in operations if op.operation_type == OperationType.SNAPSHOT
+        ]
+        backup_operations = [
+            op for op in operations if op.operation_type == OperationType.BACKUP
+        ]
+
+        sorted_operations = snapshot_operations + backup_operations
+
+        if len(snapshot_operations) > 0 and len(backup_operations) > 0:
+            self.logger.info(
+                f"Operation prioritization: {len(snapshot_operations)} snapshots will run first, "
+                f"then {len(backup_operations)} backups"
+            )
+
         if context.should_simulate_operations():
             mode_desc = "DRY RUN" if not context.test_mode else "TEST MODE + DRY RUN"
             self.logger.info(
-                f"{mode_desc}: Would execute {len(operations)} backup operations:"
+                f"{mode_desc}: Would execute {len(sorted_operations)} backup operations:"
             )
-            for op in operations:
+            for op in sorted_operations:
                 self.logger.info(
                     f"  - {op.resource_name} ({op.resource_id}): {op.operation_type.value}"
                 )
@@ -303,9 +326,11 @@ class ExecutionCoordinator:
 
             return simulated_results
 
-        # Execute operations in parallel
+        # Execute operations in parallel (prioritized: snapshots first, then backups)
         try:
-            results = await self.backup_engine.execute_parallel_operations(operations)
+            results = await self.backup_engine.execute_parallel_operations(
+                sorted_operations
+            )
 
             # Log results
             successful = [r for r in results if r.is_successful]
