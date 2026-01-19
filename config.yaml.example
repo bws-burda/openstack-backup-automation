@@ -44,13 +44,6 @@ notifications:
   # smtp_password: "smtp-password"
   # smtp_use_tls: true
 
-scheduling:
-  # Execution mode: "cron" (default) or "daemon"
-  mode: "cron"
-  
-  # Check interval for daemon mode (minutes)
-  check_interval_minutes: 15
-
 # Timezone for schedule tag interpretation
 # Times in schedule tags (e.g., SNAPSHOT-DAILY-0300) are interpreted in this timezone
 # Examples: "UTC", "Europe/Berlin", "America/New_York", "Asia/Tokyo"

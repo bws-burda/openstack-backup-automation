@@ -8,8 +8,6 @@ from .models import (
     EmailSettings,
     OpenStackCredentials,
     RetentionPolicy,
-    SchedulingConfig,
-    SchedulingMode,
 )
 
 __all__ = [
@@ -19,7 +17,5 @@ __all__ = [
     "EmailSettings",
     "RetentionPolicy",
     "BackupConfig",
-    "SchedulingConfig",
     "AuthMethod",
-    "SchedulingMode",
 ]

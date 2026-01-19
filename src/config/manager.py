@@ -14,8 +14,6 @@ from .models import (
     LoggingConfig,
     OpenStackCredentials,
     RetentionPolicy,
-    SchedulingConfig,
-    SchedulingMode,
 )
 
 
@@ -189,26 +187,6 @@ class ConfigurationManager:
                 password=smtp_password,
             )
 
-            # Parse scheduling configuration
-            scheduling_config_data = config_data.get("scheduling", {})
-            mode_str = scheduling_config_data.get("mode", "cron")
-            try:
-                mode = SchedulingMode(mode_str)
-            except ValueError:
-                raise ValueError(
-                    f"Invalid scheduling mode: {mode_str}. Must be 'cron' or 'daemon'"
-                )
-
-            scheduling_config = SchedulingConfig(
-                mode=mode,
-                check_interval_minutes=int(
-                    scheduling_config_data.get("check_interval_minutes", 15)
-                ),
-                daemon_sleep_seconds=int(
-                    scheduling_config_data.get("daemon_sleep_seconds", 60)
-                ),
-            )
-
             # Parse retention policies
             retention_policies = {}
             retention_config = config_data.get("retention_policies", {})
@@ -240,7 +218,6 @@ class ConfigurationManager:
                 openstack=openstack_creds,
                 backup=backup_config,
                 notifications=email_settings,
-                scheduling=scheduling_config,
                 retention_policies=retention_policies,
                 database_path=config_data.get("database_path", "./backup.db"),
                 timezone=config_data.get("timezone", "UTC"),

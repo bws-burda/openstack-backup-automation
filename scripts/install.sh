@@ -243,13 +243,7 @@ notifications:
   # smtp_username: "smtp-user"
   # smtp_password: "smtp-password"
   # smtp_use_tls: true
-
-scheduling:
-  # Execution mode: "cron" (default) or "daemon"
-  mode: "cron"
   
-  # Check interval for daemon mode (minutes)
-  check_interval_minutes: 15
 EOF
 
     chown "$USER:root" "$config_file"

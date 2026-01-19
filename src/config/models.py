@@ -14,13 +14,6 @@ class AuthMethod(Enum):
     PASSWORD = "password"
 
 
-class SchedulingMode(Enum):
-    """Scheduling execution modes."""
-
-    CRON = "cron"
-    DAEMON = "daemon"
-
-
 @dataclass
 class OpenStackCredentials:
     """OpenStack authentication credentials."""
@@ -196,49 +189,6 @@ class BackupConfig:
 
 
 @dataclass
-class SchedulingConfig:
-    """Scheduling configuration."""
-
-    mode: SchedulingMode = SchedulingMode.CRON
-    check_interval_minutes: int = 15
-    daemon_sleep_seconds: int = 60
-
-    def __post_init__(self):
-        """Validate scheduling configuration after initialization."""
-        self._validate()
-
-    def _validate(self):
-        """Validate scheduling configuration."""
-        if isinstance(self.mode, str):
-            try:
-                self.mode = SchedulingMode(self.mode)
-            except ValueError:
-                raise ValueError(
-                    f"Invalid scheduling mode: {self.mode}. Must be 'cron' or 'daemon'"
-                )
-
-        if self.check_interval_minutes <= 0:
-            raise ValueError(
-                f"Check interval must be positive, got: {self.check_interval_minutes}"
-            )
-
-        if self.check_interval_minutes > 1440:  # 24 hours
-            raise ValueError(
-                f"Check interval should not exceed 1440 minutes (24 hours), got: {self.check_interval_minutes}"
-            )
-
-        if self.daemon_sleep_seconds <= 0:
-            raise ValueError(
-                f"Daemon sleep seconds must be positive, got: {self.daemon_sleep_seconds}"
-            )
-
-        if self.daemon_sleep_seconds > 3600:  # 1 hour
-            raise ValueError(
-                f"Daemon sleep seconds should not exceed 3600 (1 hour), got: {self.daemon_sleep_seconds}"
-            )
-
-
-@dataclass
 class MonitoringConfig:
     """Monitoring and health check configuration."""
 
@@ -299,7 +249,6 @@ class Config:
     openstack: OpenStackCredentials
     backup: BackupConfig
     notifications: EmailSettings
-    scheduling: SchedulingConfig
     retention_policies: Dict[str, RetentionPolicy] = field(default_factory=dict)
 
     # Database configuration

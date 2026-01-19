@@ -15,7 +15,7 @@ from .config import ConfigurationManager
 from .notification import NotificationService
 from .retention import RetentionManager
 from .scanner import TagScanner
-from .scheduler import DaemonRunner, ExecutionCoordinator
+from .scheduler import ExecutionCoordinator
 from .state import StateManager
 
 __all__ = [
@@ -26,5 +26,4 @@ __all__ = [
     "NotificationService",
     "StateManager",
     "ExecutionCoordinator",
-    "DaemonRunner",
 ]
