@@ -21,6 +21,7 @@ class OperationStatus(Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
+    SKIPPED = "skipped"
     TIMEOUT = "timeout"
 
 

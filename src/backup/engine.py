@@ -63,8 +63,26 @@ class BackupEngine:
         backup_type: str,
         parent_backup_id: Optional[str] = None,
     ) -> str:
-        """Create a backup of a volume."""
+        """Create a backup of a volume.
+
+        Skips backup if volume is currently being backed up (status: "backing-up").
+        This prevents conflicts when multiple backup cycles run concurrently.
+        """
         async with self.semaphore:
+            # Check if volume is already being backed up
+            try:
+                volume = await self.openstack_client.get_volume(volume_id)
+                if volume and volume.get("status") == "backing-up":
+                    self.logger.info(
+                        f"Skipping backup for volume {volume_id} - backup already in progress (status: backing-up)"
+                    )
+                    # Return empty string to signal skip (will be handled by caller)
+                    return ""
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not check volume status for {volume_id}: {e}. Proceeding with backup attempt."
+                )
+
             incremental = backup_type == BackupType.INCREMENTAL.value
             return await self.openstack_client.create_volume_backup(
                 volume_id, name, incremental, parent_backup_id
@@ -270,6 +288,20 @@ class BackupEngine:
             except asyncio.TimeoutError:
                 raise RuntimeError(
                     f"Backup creation timed out after {backup_creation_timeout} seconds"
+                )
+
+            # Handle skip case (empty backup_id means backup was skipped)
+            if backup_id == "":
+                self.logger.info(
+                    f"Backup skipped for resource {operation.resource_id} - will retry in next cycle"
+                )
+                return OperationResult(
+                    operation=operation,
+                    status=OperationStatus.SKIPPED,
+                    backup_info=None,
+                    started_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(timezone.utc),
+                    message="Backup skipped - volume backup already in progress",
                 )
 
             if not backup_id:

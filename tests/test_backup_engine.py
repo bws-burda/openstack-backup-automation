@@ -35,6 +35,7 @@ class TestBackupEngine:
     @pytest.mark.asyncio
     async def test_create_volume_backup(self):
         """Test volume backup creation."""
+        self.mock_client.get_volume.return_value = {"id": "volume-1", "status": "available"}
         self.mock_client.create_volume_backup.return_value = "backup-456"
         
         result = await self.engine.create_volume_backup("volume-1", "test-backup", "full")
