@@ -137,7 +137,6 @@ class RetentionPolicy:
     """Simplified backup retention policy configuration."""
 
     retention_days: int
-    keep_last_full_backup: bool = True
 
     def __post_init__(self):
         """Validate retention policy after initialization."""

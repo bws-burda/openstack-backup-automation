@@ -220,9 +220,6 @@ class ConfigurationManager:
                     retention_days=int(
                         policy_data.get("retention_days", 30)  # Default fallback
                     ),
-                    keep_last_full_backup=bool(
-                        policy_data.get("keep_last_full_backup", True)
-                    ),
                 )
 
             # Create logging config

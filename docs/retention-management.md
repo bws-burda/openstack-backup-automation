@@ -137,33 +137,27 @@ retention_policies:
   default:
     retention_days: 30
     min_backups_to_keep: 1
-    keep_last_full_backup: true
   
   # Special policies for different use cases
   critical:
     retention_days: 90
     min_backups_to_keep: 5
-    keep_last_full_backup: true
   
   testing:
     retention_days: 7
     min_backups_to_keep: 1
-    keep_last_full_backup: false
   
   snapshots:
     retention_days: 3
     min_backups_to_keep: 1
-    keep_last_full_backup: false
   
   daily:
     retention_days: 30
     min_backups_to_keep: 3
-    keep_last_full_backup: true
   
   weekly:
     retention_days: 60
     min_backups_to_keep: 2
-    keep_last_full_backup: true
 
 backup:
   # Batch deletion settings
@@ -237,7 +231,7 @@ Correct: RETAIN30
 
 **Problem**: Too many backups are deleted
 ```
-Solution: Increase min_backups_to_keep or set keep_last_full_backup=true
+Solution: Increase min_backups_to_keep
 ```
 
 ### Debug Mode

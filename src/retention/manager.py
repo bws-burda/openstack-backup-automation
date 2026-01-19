@@ -164,11 +164,13 @@ class RetentionManager(RetentionManagerInterface):
                     f"Would leave only {remaining_after_deletion} backups (minimum: 1)"
                 )
 
-            # Rule 2: Check if it's the last full backup and policy says to keep it
-            elif policy.keep_last_full_backup and backup.backup_type == BackupType.FULL:
+            # Rule 2: Always keep the last full backup (required for backup chain integrity)
+            if backup.backup_type == BackupType.FULL:
                 if self._is_last_full_backup(backup, all_backups):
                     can_delete = False
-                    skip_reason = "Last full backup (protected by policy)"
+                    skip_reason = (
+                        "Last full backup (required for backup chain integrity)"
+                    )
 
             # Rule 3: For full backups, check if there are dependent incrementals
             elif backup.backup_type == BackupType.FULL:
@@ -1115,7 +1117,6 @@ class RetentionManager(RetentionManagerInterface):
             retention_days=tag_retention_info.get(
                 "retention_days", default_policy.retention_days
             ),
-            keep_last_full_backup=default_policy.keep_last_full_backup,
         )
 
     def get_backups_to_delete_with_tag_policies(
@@ -1282,7 +1283,6 @@ class RetentionManager(RetentionManagerInterface):
                     retention_days=tag_retention_info.get(
                         "retention_days", default_policy.retention_days
                     ),
-                    keep_last_full_backup=default_policy.keep_last_full_backup,
                 )
 
         # 2. Check global policies (medium priority)

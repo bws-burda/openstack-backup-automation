@@ -157,7 +157,6 @@ notifications:
 retention_policies:
   default:
     retention_days: 30
-    keep_last_full_backup: true
   snapshots:
     retention_days: 7
 ```
