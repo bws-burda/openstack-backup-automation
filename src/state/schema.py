@@ -148,12 +148,10 @@ class DatabaseSchema:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # Check if all required tables exist
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT name FROM sqlite_master
                     WHERE type='table' AND name IN ('resources', 'backups', 'backup_metadata', 'schema_version')
-                """
-                )
+                """)
                 tables = {row[0] for row in cursor.fetchall()}
                 required_tables = {
                     "resources",
@@ -189,13 +187,11 @@ class DatabaseSchema:
                 stats["active_resources"] = cursor.fetchone()[0]
 
                 # Count backups by type
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT backup_type, COUNT(*)
                     FROM backups
                     GROUP BY backup_type
-                """
-                )
+                """)
                 backup_counts = dict(cursor.fetchall())
                 stats["backup_counts"] = backup_counts
 

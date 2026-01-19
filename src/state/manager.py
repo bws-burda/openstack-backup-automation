@@ -177,15 +177,13 @@ class StateManager(StateManagerInterface):
             List of all backup info
         """
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT backup_id, resource_id, resource_type, backup_type,
                        parent_backup_id, created_at, verified, schedule_tag,
                        retention_days, related_instance_snapshot_id
                 FROM backups
                 ORDER BY created_at ASC
-            """
-            )
+            """)
 
             return [self._row_to_backup_info(row) for row in cursor.fetchall()]
 
@@ -374,23 +372,19 @@ class StateManager(StateManagerInterface):
             stats = {}
 
             # Total backups by type
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT backup_type, COUNT(*) as count
                 FROM backups
                 GROUP BY backup_type
-            """
-            )
+            """)
             stats["backup_counts"] = dict(cursor.fetchall())
 
             # Verified vs unverified
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT verified, COUNT(*) as count
                 FROM backups
                 GROUP BY verified
-            """
-            )
+            """)
             verification_stats = dict(cursor.fetchall())
             stats["verified_backups"] = verification_stats.get(
                 1, 0
