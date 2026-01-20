@@ -7,6 +7,22 @@
 
 Automated backup and snapshot system for OpenStack resources based on tags.
 
+## 📋 Quick Navigation
+
+- [Quick Start](#quick-start) - Get up and running in 5 minutes
+- [Configuration](#configuration) - Set up your environment
+- [Tag Your Resources](#tag-your-resources) - How to tag instances and volumes
+- [Tag Format](#tag-format) - Complete tag syntax reference
+- [Features](#features) - What's included
+- [Backup Strategy](#backup-strategy) - How backups work
+- [Skip Logic](#skip-logic---concurrent-operation-protection) - Concurrent operation handling
+- [Retention Management](#retention-management) - Automatic cleanup
+- [Manual Execution](#manual-execution) - Run backups manually
+- [Monitoring](#monitoring) - Monitor your backups
+- [Troubleshooting](#troubleshooting) - Common issues and solutions
+- [Roadmap](#roadmap) - Planned features
+- [Development](#development) - Contributing to the project
+
 ## Quick Start (Repository-based)
 
 ### 1. Clone and Setup
@@ -252,10 +268,57 @@ After the first defensive backup, the system follows the normal schedule:
 - **No Data Loss Risk**: Resources are protected immediately
 - **Seamless Integration**: Normal schedule from second backup onwards
 
+## Skip Logic - Concurrent Operation Protection
+
+When multiple backup cycles run in parallel (e.g., cron every 15 minutes), the system automatically skips operations if a volume is already being backed up. This prevents "volume already backing up" errors and allows safe, frequent scheduling.
+
+### How It Works
+
+- **Status Check**: Before creating a backup/snapshot, the system checks if the volume status is "backing-up"
+- **Automatic Skip**: If a backup is already in progress, the operation is skipped
+- **Retry Next Cycle**: The operation will be automatically retried in the next backup cycle
+- **No Error**: Skipped operations are NOT counted as failures and do NOT trigger monitoring alerts
+
+### Example Scenario
+
+```bash
+# Cron: Every 15 minutes
+
+10:00 AM - Cycle 1 starts
+  - Volume A: Backup starts (status: backing-up)
+  - Backup takes 20 minutes
+
+10:15 AM - Cycle 2 starts (while Cycle 1 still running)
+  - Volume A: SKIPPED (already backing-up)
+  - Will retry at 10:30 AM
+
+10:30 AM - Cycle 3 starts
+  - Volume A: Backup completes from Cycle 1
+  - Volume A: New backup starts (status: backing-up)
+```
+
+### Output Example
+
+```
+Backup cycle completed:
+  Operations executed: 10
+  Successful: 8
+  Skipped: 2
+  Failed: 0
+```
+
+### Benefits
+
+- **Frequent Cron Schedules**: Safe to use frequent schedules (e.g., every 15 minutes)
+- **No Conflicts**: Prevents concurrent operation errors automatically
+- **Transparent Retry**: Skipped operations are automatically retried without manual intervention
+- **Monitoring-Friendly**: Skipped operations do NOT trigger error alerts
+
 ## Features
 
 - ✅ Tag-based resource discovery
 - ✅ **Defensive backup strategy** (immediate protection)
+- ✅ **Concurrent operation protection** (skip if already backing up)
 - ✅ Automated snapshots and backups
 - ✅ Full/Incremental backup strategies
 - ✅ Configurable retention policies
@@ -265,14 +328,169 @@ After the first defensive backup, the system follows the normal schedule:
 - ✅ Comprehensive logging
 - ✅ Health monitoring
 
-## Advanced Features
+## Retention Management
 
-For detailed information about advanced retention management features including batch deletion, policy priorities, and backup chain integrity, see [docs/retention-management.md](docs/retention-management.md).
+The system automatically manages backup retention with intelligent policies and automatic cleanup.
+
+### Tag-Based Retention (Recommended)
+
+Specify retention directly in tags:
+
+```bash
+# Keep backups for 90 days
+openstack server set --tag "BACKUP-DAILY-0300-RETAIN90" my-server
+
+# Keep backups for 14 days
+openstack volume set --property backup="BACKUP-DAILY-0400-RETAIN14" my-volume
+```
+
+### Policy Priority
+
+Retention policies are applied in this order (highest to lowest priority):
+
+1. **Tag-Embedded Retention**: `RETAIN{n}` in tag (e.g., `RETAIN90`)
+2. **Global Policies**: Configured in `config.yaml` by type/frequency
+3. **Default Policy**: Fallback retention (default: 30 days)
+
+### Configuration
+
+```yaml
+# config.yaml
+retention_policies:
+  default:
+    retention_days: 30
+    min_backups_to_keep: 1
+  
+  snapshots:
+    retention_days: 7
+  
+  daily:
+    retention_days: 30
+    min_backups_to_keep: 3
+  
+  weekly:
+    retention_days: 60
+    min_backups_to_keep: 2
+```
+
+### Automatic Chain Integrity
+
+The system protects backup chains automatically:
+
+- ✅ **Full Backup Protection**: Full backups are only deleted when no incremental backups depend on them
+- ✅ **Complete Chains**: Incremental chains remain complete and functional
+- ✅ **Orphan Detection**: Orphaned incrementals are automatically identified and cleaned up
+- ✅ **Minimum Retention**: At least 1 backup is always kept per resource
+
+### Performance: Batch Deletion
+
+Backups are deleted in parallel batches for improved performance:
+
+| Backup Count | Sequential | Batch (5) | Improvement |
+|--------------|------------|-----------|-------------|
+| 50           | 1:40 min   | 1:20 min  | 20% faster  |
+| 200          | 6:40 min   | 5:20 min  | 25% faster  |
+| 1000         | 33 min     | 27 min    | 30% faster  |
+
+### Best Practices
+
+1. **Use Tag Retention**: Always specify `RETAIN{n}` for important resources
+2. **Conservative Defaults**: Set default policy to longer retention (e.g., 30 days)
+3. **Monitor Cleanup**: Check logs for deletion operations
+4. **Test Policies**: Use `--dry-run` to preview what would be deleted
 
 # Roadmap
-## Advanced Features
 
-For information about planned and ongoing development, see [ROADMAP.md](ROADMAP.md).
+## 🚀 Planned Features
+
+### 1. Full Incremental Backup Chain Management
+
+**Status:** Infrastructure ready, implementation pending
+
+**Goal:** Implement intelligent full/incremental backup chains to optimize storage usage.
+
+**Current State:**
+- Tag format already supports `FULL{DAYS}` parameter (e.g., `BACKUP-DAILY-0300-FULL7`)
+- Config has `full_backup_interval_days` setting
+- Database tracks backup types (full/incremental)
+
+**What's Missing:**
+- Scheduling of incremental backups
+- Proper backup chain validation (ensure incrementals have a full backup base)
+- Chain integrity checks (detect broken chains)
+- Smart cleanup that preserves chain integrity
+
+**Example Target Behavior:**
+```bash
+# Tag: BACKUP-DAILY-0300-FULL7
+Day 1: Full backup
+Day 2-7: Incremental backups (based on Day 1)
+Day 8: Full backup (new chain starts)
+Day 9-14: Incremental backups (based on Day 8)
+```
+
+**Benefits:**
+- Significant storage savings (incrementals are much smaller)
+- Faster backup operations (incrementals are quicker)
+- Configurable balance between storage and restore speed
+
+---
+
+### 2. Multi-Project Support
+
+**Status:** Not implemented
+
+**Goal:** Manage backups across multiple OpenStack projects from a single installation.
+
+**Current State:**
+- Single project per config file
+- Need separate installation per project
+
+**Proposed Solution:**
+```yaml
+# config.yaml
+projects:
+  - name: "production"
+    auth_url: "https://openstack.example.com:5000/v3"
+    application_credential_id: "prod-cred-id"
+    application_credential_secret: "prod-secret"
+    project_name: "production-project"
+    
+  - name: "staging"
+    auth_url: "https://openstack.example.com:5000/v3"
+    application_credential_id: "staging-cred-id"
+    application_credential_secret: "staging-secret"
+    project_name: "staging-project"
+    
+  - name: "development"
+    auth_url: "https://openstack.example.com:5000/v3"
+    application_credential_id: "dev-cred-id"
+    application_credential_secret: "dev-secret"
+    project_name: "dev-project"
+
+# Optional: Per-project overrides
+backup:
+  default:
+    full_backup_interval_days: 7
+    retention_days: 30
+  
+  project_overrides:
+    production:
+      retention_days: 90
+    development:
+      retention_days: 7
+```
+
+**Benefits:**
+- Single installation manages multiple projects
+- Centralized backup management
+- Reduced maintenance overhead
+- Consistent backup policies across projects
+
+**Implementation Considerations:**
+- Database schema needs project identifier
+- Separate backup tracking per project
+- Backward compatibility with single-project configs
 
 ## Development
 
