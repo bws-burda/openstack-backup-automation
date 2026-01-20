@@ -826,6 +826,38 @@ class OpenStackClient(OpenStackClientInterface):
                 raise APIError(f"Error listing volume backups: {e}")
             raise
 
+    async def get_volume(self, volume_id: str) -> Optional[Dict[str, Any]]:
+        """Get volume information including status."""
+
+        async def _get_volume():
+            await self._ensure_authenticated()
+            volume = self.connection.block_storage.get_volume(volume_id)
+            if volume:
+                return {
+                    "id": volume.id,
+                    "status": volume.status,
+                    "name": volume.name,
+                    "size": volume.size,
+                }
+            return None
+
+        try:
+            return await self._retry_on_failure(_get_volume, "get_volume")
+        except HttpException as e:
+            if e.status_code == 401:
+                raise TokenExpiredError("Token expired while getting volume")
+            elif e.status_code == 404:
+                self.logger.debug(f"Volume {volume_id} not found")
+                return None
+            else:
+                self.logger.error(f"HTTP error getting volume: {e}")
+                return None
+        except Exception as e:
+            if not isinstance(e, (APIError, TokenExpiredError)):
+                self.logger.error(f"Error getting volume {volume_id}: {e}")
+                return None
+            raise
+
     async def get_backup_status(
         self, backup_id: str, resource_type: str
     ) -> Optional[str]:
