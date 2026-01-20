@@ -3,6 +3,8 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> Built with vibe coding.
+
 Automated backup and snapshot system for OpenStack resources based on tags.
 
 ## Quick Start (Repository-based)

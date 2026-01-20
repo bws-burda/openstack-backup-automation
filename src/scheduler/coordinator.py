@@ -269,10 +269,10 @@ class ExecutionCoordinator:
         # Sort operations: Snapshots first, then Backups
         # This ensures snapshots complete before backups start, reducing resource contention
         snapshot_operations = [
-            op for op in operations if op.operation_type == OperationType.SNAPSHOT
+            op for op in operations if op.operation_type == BackupType.SNAPSHOT
         ]
         backup_operations = [
-            op for op in operations if op.operation_type == OperationType.BACKUP
+            op for op in operations if op.operation_type in [BackupType.FULL, BackupType.INCREMENTAL]
         ]
 
         sorted_operations = snapshot_operations + backup_operations
@@ -299,7 +299,7 @@ class ExecutionCoordinator:
             from ..backup.models import OperationResult, OperationStatus
 
             simulated_results = []
-            for op in operations:
+            for op in sorted_operations:
                 # Create simulated backup info
                 from ..backup.models import BackupInfo
 
