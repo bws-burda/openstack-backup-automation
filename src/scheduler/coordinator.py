@@ -268,8 +268,6 @@ class ExecutionCoordinator:
 
         # Sort operations: Snapshots first, then Backups
         # This ensures snapshots complete before backups start, reducing resource contention
-        from ..backup.models import OperationType
-
         snapshot_operations = [
             op for op in operations if op.operation_type == OperationType.SNAPSHOT
         ]
