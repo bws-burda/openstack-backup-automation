@@ -12,7 +12,7 @@ from ..backup.models import (
     OperationStatus,
 )
 from ..config.models import Config
-from ..core.context import BackupContext
+from ..execution.context import BackupContext
 from ..interfaces import (
     NotificationServiceInterface,
     RetentionManagerInterface,

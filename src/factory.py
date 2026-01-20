@@ -34,6 +34,7 @@ def create_coordinator_from_config(config_path: str) -> ExecutionCoordinator:
         max_concurrent_operations=config.backup.max_concurrent_operations,
         operation_timeout_minutes=config.backup.operation_timeout_minutes,
         full_backup_interval_days=config.backup.full_backup_interval_days,
+        timezone_str=config.timezone,
     )
 
     retention_manager = RetentionManager(

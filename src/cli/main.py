@@ -3,14 +3,13 @@
 import asyncio
 import logging
 import os
-import shutil
 import sys
 from typing import Optional
 
 import click
 
 from ..config.manager import ConfigurationManager
-from ..core.context import BackupContext
+from ..execution.context import BackupContext
 from ..factory import create_coordinator_from_config
 from ..logging.config import LoggingConfig
 from ..logging.config import setup_logging as setup_comprehensive_logging
@@ -521,98 +520,6 @@ monitoring:
     except Exception as e:
         click.echo(f"✗ Configuration validation failed: {e}", err=True)
         sys.exit(1)
-
-
-@cli.command()
-@click.option(
-    "--user", default="backup", help="System user for the service (default: backup)"
-)
-@click.option(
-    "--config-dir",
-    default="/etc/backup-automation",
-    help="Configuration directory (default: /etc/backup-automation)",
-)
-@click.option(
-    "--data-dir",
-    default="/var/lib/backup-automation",
-    help="Data directory for database and logs (default: /var/lib/backup-automation)",
-)
-@click.pass_context
-def install(ctx, user, config_dir, data_dir):
-    """Install OpenStack Backup Automation as a cron job.
-
-    This command helps you install the backup automation system as a cron job.
-    It creates necessary directories, users, and configuration files.
-
-    Examples:
-        # Install with default settings
-        sudo openstack-backup-automation install
-
-        # Install with custom user and directories
-        sudo openstack-backup-automation install --user mybackup --config-dir /opt/backup/config
-    """
-    if os.geteuid() != 0:
-        click.echo(
-            "Error: Installation requires root privileges. Please run with sudo.",
-            err=True,
-        )
-        sys.exit(1)
-    try:
-        # Create system user if it doesn't exist
-        import subprocess
-
-        try:
-            subprocess.run(["id", user], check=True, capture_output=True)
-            click.echo(f"✓ User '{user}' already exists")
-        except subprocess.CalledProcessError:
-            subprocess.run(
-                [
-                    "useradd",
-                    "--system",
-                    "--shell",
-                    "/bin/false",
-                    "--home-dir",
-                    data_dir,
-                    "--create-home",
-                    user,
-                ],
-                check=True,
-            )
-            click.echo(f"✓ Created system user '{user}'")
-        # Create directories
-        for directory in [config_dir, data_dir]:
-            os.makedirs(directory, exist_ok=True)
-            shutil.chown(directory, user, user)
-            os.chmod(directory, 0o750)
-            click.echo(f"✓ Created directory: {directory}")
-
-        install_cron_job(user, config_dir, data_dir)
-
-        click.echo("\n✓ Installation completed successfully!")
-        click.echo("Next steps:")
-        click.echo(f"1. Copy your configuration to: {config_dir}/config.yaml")
-        click.echo(
-            f"2. Ensure the configuration is owned by {user}:root with 640 permissions"
-        )
-        click.echo("3. The cron job has been installed and will run every 15 minutes")
-    except Exception as e:
-        click.echo(f"Installation failed: {e}", err=True)
-        sys.exit(1)
-
-
-def install_cron_job(user, config_dir, data_dir):
-    """Install cron job for the specified user."""
-    cron_file = "/etc/cron.d/backup-automation"
-    venv_bin = os.path.join(data_dir, "venv/bin/openstack-backup-automation")
-    config_file = os.path.join(config_dir, "config.yaml")
-
-    with open(cron_file, "w") as f:
-        f.write("# OpenStack Backup Automation\n")
-        f.write(
-            f"*/15 * * * * {user} {venv_bin} --config {config_file} run >/dev/null 2>&1\n"
-        )
-    os.chmod(cron_file, 0o644)
-    click.echo("✓ Cron job installed: /etc/cron.d/backup-automation")
 
 
 def main():

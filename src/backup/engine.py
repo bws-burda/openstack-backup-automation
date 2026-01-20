@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, List, Optional
 
+import pytz
+
 from .models import (
     BackupInfo,
     BackupOperation,
@@ -29,6 +31,7 @@ class BackupEngine:
         max_concurrent_operations: int = 5,
         operation_timeout_minutes: int = 60,
         full_backup_interval_days: int = 7,
+        timezone_str: str = "UTC",
     ):
         self.openstack_client = openstack_client
         self.state_manager = state_manager
@@ -37,6 +40,15 @@ class BackupEngine:
         self.executor = ThreadPoolExecutor(max_workers=max_concurrent_operations)
         self.semaphore = asyncio.Semaphore(max_concurrent_operations)
         self.logger = logging.getLogger(__name__)
+
+        # Set timezone from config
+        try:
+            self.tz = pytz.timezone(timezone_str)
+        except pytz.exceptions.UnknownTimeZoneError:
+            self.logger.warning(
+                f"Unknown timezone '{timezone_str}', falling back to UTC"
+            )
+            self.tz = pytz.UTC
 
         # Initialize backup strategy
         self.backup_strategy = BackupStrategy(
@@ -280,8 +292,9 @@ class BackupEngine:
                                 "creating full backup instead"
                             )
 
-            # Generate backup name with timestamp
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            # Generate backup name with timestamp in configured timezone
+            now_local = datetime.now(self.tz)
+            timestamp = now_local.strftime("%Y%m%d-%H%M%S")
             backup_name = (
                 f"{operation.resource_name}-{actual_backup_type.value}-{timestamp}"
             )
