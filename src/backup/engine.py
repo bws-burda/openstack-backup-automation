@@ -301,7 +301,7 @@ class BackupEngine:
                     backup_info=None,
                     started_at=datetime.now(timezone.utc),
                     completed_at=datetime.now(timezone.utc),
-                    message="Backup skipped - volume backup already in progress",
+                    error_message="Backup skipped - volume backup already in progress",
                 )
 
             if not backup_id:
