@@ -272,7 +272,9 @@ class ExecutionCoordinator:
             op for op in operations if op.operation_type == BackupType.SNAPSHOT
         ]
         backup_operations = [
-            op for op in operations if op.operation_type in [BackupType.FULL, BackupType.INCREMENTAL]
+            op
+            for op in operations
+            if op.operation_type in [BackupType.FULL, BackupType.INCREMENTAL]
         ]
 
         sorted_operations = snapshot_operations + backup_operations
