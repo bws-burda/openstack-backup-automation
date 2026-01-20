@@ -25,6 +25,12 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 
 ## Quick Start (Repository-based)
 
+### Requirements
+- Linux OS
+- Python 3.8+
+- Valid OpenStack credentials
+- SMTP access for notifications (optional)
+
 ### 1. Clone and Setup
 ```bash
 git clone <repository-url> openstack-backup-automation
@@ -553,12 +559,6 @@ If you encounter issues:
 6. **Verify timing** with `--dry-run` mode
 
 For additional support, check the project documentation or open an issue on GitHub.
-
-## Requirements
-
-- Python 3.8+
-- Valid OpenStack credentials
-- SMTP access for notifications (optional)
 
 ## License
 
