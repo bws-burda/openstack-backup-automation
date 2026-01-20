@@ -93,5 +93,17 @@ class OperationResult:
 
     @property
     def is_successful(self) -> bool:
-        """Check if operation was successful."""
+        """Check if operation was successful.
+
+        Returns True for:
+        - COMPLETED operations with backup_info
+        - SKIPPED operations (not counted as failures)
+
+        Returns False for:
+        - FAILED operations
+        - TIMEOUT operations
+        - Other incomplete operations
+        """
+        if self.status == OperationStatus.SKIPPED:
+            return True
         return self.status == OperationStatus.COMPLETED and self.backup_info is not None

@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from ..backup.engine import BackupEngine
-from ..backup.models import BackupOperation, BackupType, OperationResult
+from ..backup.models import (
+    BackupOperation,
+    BackupType,
+    OperationResult,
+    OperationStatus,
+)
 from ..config.models import Config
 from ..core.context import BackupContext
 from ..interfaces import (
@@ -86,6 +91,7 @@ class ExecutionCoordinator:
             "operations_executed": 0,
             "successful_operations": 0,
             "failed_operations": 0,
+            "skipped_operations": 0,
             "retention_deleted": 0,
             "errors": [],
             "operation_results": [],
@@ -119,10 +125,15 @@ class ExecutionCoordinator:
                 results["operation_results"] = operation_results
                 results["operations_executed"] = len(operation_results)
                 results["successful_operations"] = sum(
-                    1 for r in operation_results if r.is_successful
+                    1
+                    for r in operation_results
+                    if r.status == OperationStatus.COMPLETED
                 )
                 results["failed_operations"] = sum(
-                    1 for r in operation_results if not r.is_successful
+                    1 for r in operation_results if r.status == OperationStatus.FAILED
+                )
+                results["skipped_operations"] = sum(
+                    1 for r in operation_results if r.status == OperationStatus.SKIPPED
                 )
 
             # Phase 4: Retention Cleanup

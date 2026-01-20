@@ -154,6 +154,7 @@ def run(ctx, dry_run, test_mode, status):
                 click.echo("Backup cycle completed:")
                 click.echo(f"  Operations executed: {results['operations_executed']}")
                 click.echo(f"  Successful: {results['successful_operations']}")
+                click.echo(f"  Skipped: {results['skipped_operations']}")
                 click.echo(f"  Failed: {results['failed_operations']}")
                 click.echo(
                     f"  Backups cleaned up: {results.get('retention_deleted', 0)}"
