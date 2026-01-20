@@ -52,8 +52,26 @@ class BackupEngine:
             )
 
     async def create_volume_snapshot(self, volume_id: str, name: str) -> str:
-        """Create a snapshot of a volume."""
+        """Create a snapshot of a volume.
+
+        Skips snapshot if volume is currently being backed up (status: "backing-up").
+        This prevents conflicts when multiple backup cycles run concurrently.
+        """
         async with self.semaphore:
+            # Check if volume is already being backed up
+            try:
+                volume = await self.openstack_client.get_volume(volume_id)
+                if volume and volume.get("status") == "backing-up":
+                    self.logger.info(
+                        f"Skipping snapshot for volume {volume_id} - backup already in progress (status: backing-up)"
+                    )
+                    # Return empty string to signal skip (will be handled by caller)
+                    return ""
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not check volume status for {volume_id}: {e}. Proceeding with snapshot attempt."
+                )
+
             return await self.openstack_client.create_volume_snapshot(volume_id, name)
 
     async def create_volume_backup(
