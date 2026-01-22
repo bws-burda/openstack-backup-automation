@@ -10,9 +10,6 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 ## 📋 Quick Navigation
 
 - [Quick Start](#quick-start) - Get up and running in 5 minutes
-- [Configuration](#configuration) - Set up your environment
-- [Tag Your Resources](#tag-your-resources) - How to tag instances and volumes
-- [Tag Format](#tag-format) - Complete tag syntax reference
 - [Features](#features) - What's included
 - [Backup Strategy](#backup-strategy) - How backups work
 - [Skip Logic](#skip-logic---concurrent-operation-protection) - Concurrent operation handling
@@ -70,18 +67,6 @@ timezone: "Europe/Berlin"  # or "UTC", "America/New_York", etc.
 ```bash
 # Validate configuration
 openstack-backup-automation config-validate
-
-# Test run (dry-run)
-openstack-backup-automation run --dry-run
-```
-
-### 5. Setup Automatic Execution
-```bash
-# Setup cron job (runs every 15 minutes by default unless otherwise configured)
-./scripts/setup-cron.sh
-
-# Or with custom interval
-./scripts/setup-cron.sh --interval 30
 ```
 
 ## Tag Your Resources
@@ -204,9 +189,6 @@ openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-freq-db
 ## Manual Execution
 
 ```bash
-# Validate configuration
-openstack-backup-automation config-validate
-
 # Dry run (test mode - shows what would be done)
 openstack-backup-automation run --dry-run
 
@@ -215,6 +197,15 @@ openstack-backup-automation run
 
 # Check system health
 openstack-backup-automation health
+```
+
+## Setup Automatic Execution
+```bash
+# Setup cron job (runs every 15 minutes by default unless otherwise configured)
+./scripts/setup-cron.sh
+
+# Or with custom interval
+./scripts/setup-cron.sh --interval 30
 ```
 
 ### Manual Testing
@@ -342,7 +333,6 @@ Backup cycle completed:
 - ✅ **Defensive backup strategy** (immediate protection)
 - ✅ **Concurrent operation protection** (skip if already backing up)
 - ✅ Automated snapshots and backups
-- ✅ Full/Incremental backup strategies
 - ✅ Configurable retention policies
 - ✅ Parallel operation execution
 - ✅ Email notifications on errors
