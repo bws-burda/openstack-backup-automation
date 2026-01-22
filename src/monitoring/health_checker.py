@@ -228,13 +228,14 @@ class HealthChecker:
             total, used, free = shutil.disk_usage(db_dir)
             used_percent = (used / total) * 100
 
-            # More lenient thresholds since this is just for metadata
-            if used_percent >= 95:  # Very high threshold since DB is tiny
+            # Use configured threshold
+            threshold = self.config.local_storage_threshold_percent
+            if used_percent >= threshold:
                 status = HealthStatus.UNHEALTHY
-                message = f"Local storage critical: {used_percent:.1f}% used"
-            elif used_percent >= 90:
+                message = f"Local storage critical: {used_percent:.1f}% used (threshold: {threshold}%)"
+            elif used_percent >= (threshold - 5):  # Warning at 5% below threshold
                 status = HealthStatus.DEGRADED
-                message = f"Local storage warning: {used_percent:.1f}% used"
+                message = f"Local storage warning: {used_percent:.1f}% used (threshold: {threshold}%)"
             else:
                 status = HealthStatus.HEALTHY
                 message = f"Local storage OK: {used_percent:.1f}% used (metadata only)"
@@ -245,6 +246,7 @@ class HealthChecker:
                 "used_gb": round(used / (1024**3), 2),
                 "free_gb": round(free / (1024**3), 2),
                 "used_percent": round(used_percent, 1),
+                "threshold_percent": threshold,
                 "purpose": "database_and_logs_only",
                 "note": "Actual backup storage is in OpenStack (Cinder/Glance)",
             }
