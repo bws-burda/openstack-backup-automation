@@ -195,7 +195,7 @@ openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-freq-db
 ## Manual Execution
 
 ```bash
-# Dry run (test mode - shows what would be done)
+# Dry run (shows what would be done)
 openstack-backup-automation run --dry-run
 
 # Run backup cycle
