@@ -201,35 +201,6 @@ openstack volume set --property backup="BACKUP-MONTHLY-0000-RETAIN2555-FULL1" ar
 openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-freq-db
 ```
 
-## Configuration
-
-Edit `config.yaml` with your settings:
-
-```yaml
-openstack:
-  auth_method: "application_credential"
-  auth_url: "https://your-openstack.example.com:5000/v3"
-  project_name: "your-project"
-  application_credential_id: "your-app-cred-id"
-  application_credential_secret: "your-app-cred-secret"
-
-backup:
-  full_backup_interval_days: 7
-  max_concurrent_operations: 5
-  operation_timeout_minutes: 60
-
-notifications:
-  enabled: false  # Set to true to enable email notifications
-  email_recipient: "admin@example.com"
-  email_sender: "backup-system@example.com"
-
-retention_policies:
-  default:
-    retention_days: 30
-  snapshots:
-    retention_days: 7
-```
-
 ## Manual Execution
 
 ```bash
