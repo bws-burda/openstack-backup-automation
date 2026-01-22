@@ -156,6 +156,51 @@ BACKUP-DAILY-0200-FULL7           # Daily backups, full backup every 7 days
 BACKUP-DAILY-0300-RETAIN90-FULL14 # Daily backups, keep 90 days, full every 14 days
 ```
 
+### Real-World Examples
+
+**Production Database Server**
+```bash
+# Daily backups at 2 AM, keep 1 year, full backup every 7 days
+openstack server set --tag "BACKUP-DAILY-0200-RETAIN365-FULL7" prod-database
+```
+
+**Web Server Farm**
+```bash
+# Daily snapshots at 3 AM, keep 30 days
+openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-01
+openstack server set --tag "SNAPSHOT-DAILY-0300-RETAIN30" web-server-02
+```
+
+**Development Environment**
+```bash
+# Weekly snapshots on Sunday at 1 AM, keep 2 weeks
+openstack server set --tag "SNAPSHOT-SUNDAY-0100-RETAIN14" dev-environment
+```
+
+**File Server**
+```bash
+# Weekly backups on Saturday at midnight, keep 6 months, full backup every time
+openstack server set --tag "BACKUP-SATURDAY-0000-RETAIN180-FULL1" file-server
+```
+
+**Test/Staging Environment**
+```bash
+# Daily snapshots at 4 AM, keep 1 week
+openstack server set --tag "SNAPSHOT-DAILY-0400-RETAIN7" staging-server
+```
+
+**Archive Storage**
+```bash
+# Monthly backups on 1st at midnight, keep 7 years, full backup every time
+openstack volume set --property backup="BACKUP-MONTHLY-0000-RETAIN2555-FULL1" archive-volume
+```
+
+**High-Frequency Database**
+```bash
+# Daily backups at 1 AM, keep 3 months, full backup every 3 days
+openstack server set --tag "BACKUP-DAILY-0100-RETAIN90-FULL3" high-freq-db
+```
+
 ## Configuration
 
 Edit `config.yaml` with your settings:

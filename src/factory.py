@@ -73,12 +73,7 @@ def create_health_checker_from_config(config_path: str) -> HealthChecker:
 
     # Create health check configuration
     health_check_config = HealthCheckConfig(
-        enabled=config.monitoring.enabled,
-        check_interval_seconds=config.monitoring.check_interval_seconds,
         timeout_seconds=config.monitoring.timeout_seconds,
-        database_check_enabled=config.monitoring.database_check_enabled,
-        openstack_check_enabled=config.monitoring.openstack_check_enabled,
-        local_storage_check_enabled=config.monitoring.local_storage_check_enabled,
         local_storage_threshold_percent=config.monitoring.local_storage_threshold_percent,
     )
 

@@ -35,7 +35,6 @@ def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = 
                 max_file_size_mb=config.log_max_size_mb,
                 backup_count=config.log_backup_count,
                 console_enabled=config.log_console_enabled,
-                syslog_enabled=config.log_syslog_enabled,
             )
             setup_comprehensive_logging(logging_config)
             return
@@ -422,23 +421,12 @@ logging:
   # log_file: "/var/log/backup-automation/backup.log"
   # log_max_size_mb: 10
   # log_backup_count: 5
-  # Console and syslog options
+  # Console options
   log_console_enabled: true
-  log_syslog_enabled: false
 # Monitoring and health checks
 monitoring:
-  enabled: true
-  check_interval_seconds: 60
   timeout_seconds: 30
-  # Component-specific checks
-  database_check_enabled: true
-  openstack_check_enabled: true
-  local_storage_check_enabled: true
-  local_storage_threshold_percent: 95  # High threshold - only for metadata
-  openstack_quota_check_enabled: true
-  # Status reporting
-  status_report_enabled: false
-  status_report_interval_hours: 24
+  local_storage_threshold_percent: 95
 # Optional: Custom retention policies per resource type
 # retention_policies:
 #   instances:

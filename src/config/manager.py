@@ -12,6 +12,7 @@ from .models import (
     Config,
     EmailSettings,
     LoggingConfig,
+    MonitoringConfig,
     OpenStackCredentials,
     RetentionPolicy,
 )
@@ -209,8 +210,16 @@ class ConfigurationManager:
                 log_file=logging_data.get("log_file", "logs/backup-automation.log"),
                 max_file_size_mb=logging_data.get("max_file_size_mb", 100),
                 backup_count=logging_data.get("backup_count", 5),
-                syslog_enabled=logging_data.get("syslog_enabled", False),
                 format_type=logging_data.get("format_type", "structured"),
+            )
+
+            # Create monitoring config
+            monitoring_data = config_data.get("monitoring", {})
+            monitoring_config = MonitoringConfig(
+                timeout_seconds=int(monitoring_data.get("timeout_seconds", 30)),
+                local_storage_threshold_percent=int(
+                    monitoring_data.get("local_storage_threshold_percent", 95)
+                ),
             )
 
             # Create main config object
@@ -222,6 +231,7 @@ class ConfigurationManager:
                 database_path=config_data.get("database_path", "./backup.db"),
                 timezone=config_data.get("timezone", "UTC"),
                 logging=logging_config,
+                monitoring=monitoring_config,
             )
 
             # Configuration validation is handled automatically by dataclass __post_init__ methods

@@ -88,22 +88,11 @@ class SystemStatus:
 class HealthCheckConfig:
     """Configuration for health checks."""
 
-    enabled: bool = True
-    check_interval_seconds: int = 60
     timeout_seconds: int = 30
-    database_check_enabled: bool = True
-    openstack_check_enabled: bool = True
-    local_storage_check_enabled: bool = False  # Usually handled by external monitoring
-    local_storage_threshold_percent: int = (
-        95  # Higher threshold since it's just metadata
-    )
-    openstack_quota_check_enabled: bool = True
+    local_storage_threshold_percent: int = 95
 
     def __post_init__(self):
         """Validate health check configuration."""
-        if self.check_interval_seconds <= 0:
-            raise ValueError("Check interval must be positive")
-
         if self.timeout_seconds <= 0:
             raise ValueError("Timeout must be positive")
 

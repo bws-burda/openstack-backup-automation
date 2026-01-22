@@ -192,16 +192,8 @@ class BackupConfig:
 class MonitoringConfig:
     """Monitoring and health check configuration."""
 
-    enabled: bool = True
-    check_interval_seconds: int = 60
     timeout_seconds: int = 30
-    database_check_enabled: bool = True
-    openstack_check_enabled: bool = True
-    local_storage_check_enabled: bool = True
     local_storage_threshold_percent: int = 95
-    openstack_quota_check_enabled: bool = True
-    status_report_enabled: bool = False
-    status_report_interval_hours: int = 24
 
     def __post_init__(self):
         """Validate monitoring configuration after initialization."""
@@ -209,22 +201,12 @@ class MonitoringConfig:
 
     def _validate(self):
         """Validate monitoring configuration."""
-        if self.check_interval_seconds <= 0:
-            raise ValueError(
-                f"Check interval must be positive, got: {self.check_interval_seconds}"
-            )
-
         if self.timeout_seconds <= 0:
             raise ValueError(f"Timeout must be positive, got: {self.timeout_seconds}")
 
         if not (0 <= self.local_storage_threshold_percent <= 100):
             raise ValueError(
                 f"Local storage threshold must be between 0 and 100, got: {self.local_storage_threshold_percent}"
-            )
-
-        if self.status_report_interval_hours <= 0:
-            raise ValueError(
-                f"Status report interval must be positive, got: {self.status_report_interval_hours}"
             )
 
 
@@ -238,7 +220,6 @@ class LoggingConfig:
     log_file: str = "logs/backup-automation.log"
     max_file_size_mb: int = 100
     backup_count: int = 5
-    syslog_enabled: bool = False
     format_type: str = "structured"  # "structured", "simple", "detailed"
 
 
@@ -355,11 +336,6 @@ class Config:
     def log_backup_count(self) -> int:
         """Get log backup count (backward compatibility)."""
         return self.logging.backup_count
-
-    @property
-    def log_syslog_enabled(self) -> bool:
-        """Get syslog enabled (backward compatibility)."""
-        return self.logging.syslog_enabled
 
     @property
     def log_console_enabled(self) -> bool:

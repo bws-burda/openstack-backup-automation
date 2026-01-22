@@ -47,22 +47,20 @@ class HealthChecker:
         components = []
 
         # Check database connectivity
-        if self.config.database_check_enabled:
-            db_health = await self._check_database_health()
-            components.append(db_health)
+        db_health = await self._check_database_health()
+        components.append(db_health)
 
         # Check OpenStack API connectivity
-        if self.config.openstack_check_enabled and self.openstack_client:
+        if self.openstack_client:
             openstack_health = await self._check_openstack_health()
             components.append(openstack_health)
 
         # Check local storage (for database/logs only)
-        if self.config.local_storage_check_enabled:
-            local_storage_health = await self._check_local_storage()
-            components.append(local_storage_health)
+        local_storage_health = await self._check_local_storage()
+        components.append(local_storage_health)
 
         # Check OpenStack quotas and storage services
-        if self.config.openstack_check_enabled and self.openstack_client:
+        if self.openstack_client:
             quota_health = await self._check_openstack_quotas()
             components.append(quota_health)
 
@@ -293,18 +291,13 @@ class HealthChecker:
         Returns:
             ComponentHealth or None if component not found
         """
-        if component_name == "database" and self.config.database_check_enabled:
+        if component_name == "database":
             return await self._check_database_health()
-        elif component_name == "openstack_api" and self.config.openstack_check_enabled:
+        elif component_name == "openstack_api" and self.openstack_client:
             return await self._check_openstack_health()
-        elif (
-            component_name == "local_storage"
-            and self.config.local_storage_check_enabled
-        ):
+        elif component_name == "local_storage":
             return await self._check_local_storage()
-        elif (
-            component_name == "openstack_quotas" and self.config.openstack_check_enabled
-        ):
+        elif component_name == "openstack_quotas" and self.openstack_client:
             return await self._check_openstack_quotas()
         else:
             return None

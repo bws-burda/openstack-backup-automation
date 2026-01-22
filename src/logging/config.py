@@ -2,7 +2,6 @@
 
 import logging
 import logging.handlers
-import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,11 +26,6 @@ class LoggingConfig:
     # Console logging
     console_enabled: bool = True
     console_level: Optional[str] = None  # If None, uses main level
-
-    # Syslog configuration
-    syslog_enabled: bool = False
-    syslog_address: str = "/dev/log"  # Unix socket path or (host, port) tuple
-    syslog_facility: str = "daemon"
 
     # Structured logging options
     include_context: bool = True
@@ -79,32 +73,6 @@ class LoggingConfig:
         if self.backup_count < 0:
             raise ValueError("Backup count must be non-negative")
 
-        # Validate syslog facility
-        valid_facilities = [
-            "kern",
-            "user",
-            "mail",
-            "daemon",
-            "auth",
-            "syslog",
-            "lpr",
-            "news",
-            "uucp",
-            "cron",
-            "authpriv",
-            "ftp",
-            "local0",
-            "local1",
-            "local2",
-            "local3",
-            "local4",
-            "local5",
-            "local6",
-            "local7",
-        ]
-        if self.syslog_facility not in valid_facilities:
-            raise ValueError(f"Invalid syslog facility: {self.syslog_facility}")
-
         # Validate logger levels
         for logger_name, level in self.logger_levels.items():
             if level.upper() not in valid_levels:
@@ -150,12 +118,6 @@ def setup_logging(config: LoggingConfig) -> None:
         file_handler = _create_file_handler(config, formatter)
         root_logger.addHandler(file_handler)
 
-    # Set up syslog handler
-    if config.syslog_enabled:
-        syslog_handler = _create_syslog_handler(config, formatter)
-        if syslog_handler:
-            root_logger.addHandler(syslog_handler)
-
     # Configure specific logger levels
     for logger_name, level in config.logger_levels.items():
         logger = logging.getLogger(logger_name)
@@ -175,7 +137,6 @@ def setup_logging(config: LoggingConfig) -> None:
             "log_level": config.level,
             "console_enabled": config.console_enabled,
             "file_logging": bool(config.log_file),
-            "syslog_enabled": config.syslog_enabled,
             "format_type": config.format_type,
         },
     )
@@ -220,46 +181,6 @@ def _create_file_handler(
     handler.setFormatter(formatter)
 
     return handler
-
-
-def _create_syslog_handler(
-    config: LoggingConfig, formatter: logging.Formatter
-) -> Optional[logging.Handler]:
-    """Create syslog handler if available."""
-    try:
-        # Determine syslog address
-        if isinstance(config.syslog_address, str):
-            # Unix socket
-            if not os.path.exists(config.syslog_address):
-                logging.getLogger(__name__).warning(
-                    f"Syslog socket not found: {config.syslog_address}"
-                )
-                return None
-            address = config.syslog_address
-        else:
-            # Network address (host, port)
-            address = config.syslog_address
-
-        # Get facility constant
-        facility = getattr(
-            logging.handlers.SysLogHandler,
-            f"LOG_{config.syslog_facility.upper()}",
-            logging.handlers.SysLogHandler.LOG_DAEMON,
-        )
-
-        handler = logging.handlers.SysLogHandler(
-            address=address,
-            facility=facility,
-        )
-
-        handler.setLevel(getattr(logging, config.level))
-        handler.setFormatter(formatter)
-
-        return handler
-
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"Failed to create syslog handler: {e}")
-        return None
 
 
 def get_logger(
