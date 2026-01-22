@@ -216,16 +216,13 @@ openstack-backup-automation health
 
 ### Manual Testing
 
-#### Test Mode for Development
+#### Test Mode to trigger backups immediately
 ```bash
-# Test mode - ignore timing, execute all policies
-openstack-backup-automation run --test-mode
-
 # Test mode with dry run - safe testing without creating actual backups
 openstack-backup-automation run --test-mode --dry-run
 
-# Normal dry run - respect timing, simulate operations
-openstack-backup-automation run --dry-run
+# Test mode - ignore timing, execute all policies
+openstack-backup-automation run --test-mode
 ```
 
 #### Database Inspection
