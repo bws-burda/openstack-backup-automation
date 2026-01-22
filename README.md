@@ -9,16 +9,22 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 
 ## 📋 Quick Navigation
 
-- [Quick Start](#quick-start) - Get up and running in 5 minutes
-- [Features](#features) - What's included
+- [Quick Start](#quick-start-repository-based) - Get up and running in 5 minutes
+- [Requirements](#requirements) - System and dependency requirements
+- [Tag Your Resources](#tag-your-resources) - How to tag instances and volumes
+- [Tag Format](#tag-format) - Complete tag syntax reference
+- [Real-World Examples](#real-world-examples) - Practical tagging scenarios
+- [Manual Execution](#manual-execution) - Run backups manually
+- [Setup Automatic Execution](#setup-automatic-execution) - Configure cron jobs
 - [Backup Strategy](#backup-strategy) - How backups work
 - [Skip Logic](#skip-logic---concurrent-operation-protection) - Concurrent operation handling
-- [Retention Management](#retention-management) - Automatic cleanup
-- [Manual Execution](#manual-execution) - Run backups manually
 - [Monitoring](#monitoring) - Monitor your backups
+- [Retention Management](#retention-management) - Automatic cleanup
+- [Features](#features) - What's included
 - [Troubleshooting](#troubleshooting) - Common issues and solutions
-- [Roadmap](#roadmap) - Planned features
 - [Development](#development) - Contributing to the project
+- [Roadmap](#-planned-features) - Planned features
+- [License](#license) - MIT License
 
 ## Quick Start (Repository-based)
 
