@@ -77,4 +77,3 @@ logging:
   log_file: "/home/ubuntu/openstack-backup-automation/logs/backup-automation.log"
   max_file_size_mb: 50
   backup_count: 5
-  format_type: "structured"  # structured (JSON) or simple

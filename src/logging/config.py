@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from .formatters import ContextFormatter, StructuredFormatter
+from .formatters import StructuredFormatter
 
 
 @dataclass
@@ -16,7 +16,6 @@ class LoggingConfig:
 
     # Basic configuration
     level: str = "INFO"
-    format_type: str = "structured"  # "structured", "simple", "detailed"
 
     # File logging
     log_file: Optional[str] = None
@@ -58,13 +57,6 @@ class LoggingConfig:
 
         if self.console_level and self.console_level.upper() not in valid_levels:
             raise ValueError(f"Invalid console log level: {self.console_level}")
-
-        # Validate format type
-        valid_formats = ["structured", "simple", "detailed"]
-        if self.format_type not in valid_formats:
-            raise ValueError(
-                f"Invalid format type: {self.format_type}. Must be one of: {valid_formats}"
-            )
 
         # Validate file size and backup count
         if self.max_file_size_mb <= 0:
@@ -137,27 +129,16 @@ def setup_logging(config: LoggingConfig) -> None:
             "log_level": config.level,
             "console_enabled": config.console_enabled,
             "file_logging": bool(config.log_file),
-            "format_type": config.format_type,
         },
     )
 
 
 def _create_formatter(config: LoggingConfig) -> logging.Formatter:
-    """Create appropriate formatter based on configuration."""
-    if config.format_type == "structured":
-        return StructuredFormatter(
-            include_context=config.include_context,
-            include_process_info=config.include_process_info,
-        )
-    elif config.format_type == "detailed":
-        return ContextFormatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(process)d - %(message)s",
-            include_context=config.include_context,
-        )
-    else:  # simple
-        return logging.Formatter(
-            fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
+    """Create structured JSON formatter."""
+    return StructuredFormatter(
+        include_context=config.include_context,
+        include_process_info=config.include_process_info,
+    )
 
 
 def _create_file_handler(

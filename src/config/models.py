@@ -220,7 +220,6 @@ class LoggingConfig:
     log_file: str = "logs/backup-automation.log"
     max_file_size_mb: int = 100
     backup_count: int = 5
-    format_type: str = "structured"  # "structured", "simple", "detailed"
 
 
 @dataclass
@@ -321,11 +320,6 @@ class Config:
     def log_file(self) -> Optional[str]:
         """Get log file (backward compatibility)."""
         return self.logging.log_file if self.logging.file_logging else None
-
-    @property
-    def log_format(self) -> str:
-        """Get log format (backward compatibility)."""
-        return self.logging.format_type
 
     @property
     def log_max_size_mb(self) -> int:

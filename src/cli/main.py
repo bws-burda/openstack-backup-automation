@@ -30,7 +30,6 @@ def setup_logging(log_level: Optional[str] = None, config_path: Optional[str] = 
 
             logging_config = LoggingConfig(
                 level=effective_log_level,
-                format_type=config.log_format,
                 log_file=config.log_file,
                 max_file_size_mb=config.log_max_size_mb,
                 backup_count=config.log_backup_count,
@@ -415,8 +414,6 @@ notifications:
 logging:
   # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_level: "INFO"
-  # Log format: "structured" (JSON), "simple", or "detailed"
-  log_format: "structured"
   # Optional: Log to file with rotation
   # log_file: "/var/log/backup-automation/backup.log"
   # log_max_size_mb: 10

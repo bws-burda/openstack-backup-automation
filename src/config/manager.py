@@ -210,7 +210,6 @@ class ConfigurationManager:
                 log_file=logging_data.get("log_file", "logs/backup-automation.log"),
                 max_file_size_mb=logging_data.get("max_file_size_mb", 100),
                 backup_count=logging_data.get("backup_count", 5),
-                format_type=logging_data.get("format_type", "structured"),
             )
 
             # Create monitoring config
