@@ -337,7 +337,7 @@ Backup cycle completed:
 - ✅ Automated snapshots and backups
 - ✅ Configurable retention policies
 - ✅ Parallel operation execution
-- ✅ Email notifications on errors
+- ✅ Email notifications on errors (full reports optional)
 - ✅ Cron integration
 - ✅ Comprehensive logging
 - ✅ Health monitoring
