@@ -186,6 +186,7 @@ class ConfigurationManager:
                 use_tls=use_tls,
                 username=smtp_username,
                 password=smtp_password,
+                send_reports=bool(email_config.get("send_reports", True)),
             )
 
             # Parse retention policies

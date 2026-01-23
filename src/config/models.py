@@ -82,6 +82,7 @@ class EmailSettings:
     use_tls: bool = False
     username: Optional[str] = None
     password: Optional[str] = None
+    send_reports: bool = True
 
     def __post_init__(self):
         """Validate email settings after initialization."""

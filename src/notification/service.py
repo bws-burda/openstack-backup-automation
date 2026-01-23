@@ -150,9 +150,9 @@ OpenStack Backup Automation System
         failed_operations: List[OperationResult],
     ) -> bool:
         """Send backup operation summary report."""
-        if not self.email_enabled:
+        if not self.email_enabled or not self.email_settings.send_reports:
             self.logger.info(
-                f"Email notifications disabled - backup report: {len(successful_operations)} successful, {len(failed_operations)} failed"
+                f"Email notifications disabled or reports disabled - backup report: {len(successful_operations)} successful, {len(failed_operations)} failed"
             )
             return True
 
@@ -206,9 +206,9 @@ OpenStack Backup Automation System
 
     def send_retention_report(self, deleted_count: int, errors: List[str]) -> bool:
         """Send retention cleanup report."""
-        if not self.email_enabled:
+        if not self.email_enabled or not self.email_settings.send_reports:
             self.logger.info(
-                f"Email notifications disabled - retention report: {deleted_count} backups deleted, {len(errors)} errors"
+                f"Email notifications disabled or reports disabled - retention report: {deleted_count} backups deleted, {len(errors)} errors"
             )
             return True
 

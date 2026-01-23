@@ -39,6 +39,7 @@ notifications:
   enabled: false  # Set to true to enable email notifications
   email_recipient: "admin@example.com"
   email_sender: "backup-system@example.com"
+  send_reports: true  # Set to false to disable backup and retention reports (errors are always sent)
   
   # Optional: SMTP settings (uses local sendmail if not specified)
   # smtp_server: "smtp.example.com"
