@@ -24,7 +24,6 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 - [Troubleshooting](#troubleshooting) - Common issues and solutions
 - [Development](#development) - Contributing to the project
 - [Roadmap](#-planned-features) - Planned features
-- [License](#license) - MIT License
 
 ## Quick Start (Repository-based)
 
@@ -568,7 +567,3 @@ If you encounter issues:
 6. **Verify timing** with `--dry-run` mode
 
 For additional support, check the project documentation or open an issue on GitHub.
-
-## License
-
-MIT License
