@@ -447,6 +447,7 @@ class ExecutionCoordinator:
             )
 
             deleted_count = cleanup_result.get("deleted_count", 0)
+            failed_count = cleanup_result.get("failed_count", 0)
 
             if deleted_count > 0:
                 self.logger.info(
@@ -455,6 +456,20 @@ class ExecutionCoordinator:
             else:
                 self.logger.info(
                     "Retention cleanup completed: no backups needed deletion"
+                )
+
+            # Send error notification if there were failures during retention cleanup
+            if failed_count > 0:
+                error_msg = f"Retention cleanup failed for {failed_count} backup(s)"
+                error = Exception(error_msg)
+                await self._send_error_notification(
+                    error,
+                    {
+                        "operation": "retention_cleanup",
+                        "deleted_count": deleted_count,
+                        "failed_count": failed_count,
+                        "cleanup_result": cleanup_result,
+                    },
                 )
 
             return deleted_count
