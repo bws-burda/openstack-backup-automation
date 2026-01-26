@@ -228,9 +228,6 @@ openstack-backup-automation run --test-mode
 ```bash
 # Check database contents
 sqlite3 backup.db "SELECT backup_id, resource_id, backup_type, created_at FROM backups ORDER BY created_at;"
-
-# Clean up cache files
-./scripts/cleanup_cache.sh
 ```
 
 ## Monitoring
@@ -250,6 +247,11 @@ tail -f logs/backup.log
 
 ```bash
 ./scripts/setup-cron.sh --remove
+```
+
+## Clean up cache files
+```bash
+./scripts/cleanup_cache.sh
 ```
 
 ## Backup Strategy
