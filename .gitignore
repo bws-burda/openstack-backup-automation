@@ -62,3 +62,9 @@ logs/
 
 # Configuration files (keep examples, ignore actual configs)
 config.yaml
+config-*.yaml
+.env
+.env.local
+*.pem
+*.key
+*.crt
