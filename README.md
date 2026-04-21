@@ -7,9 +7,12 @@
 
 Automated backup and snapshot system for OpenStack resources based on tags.
 
+> [!WARNING]
+> The use of native OpenStack backups does not guarantee data integrity for running databases or applications.
+
 ## 📋 Quick Navigation
 
-- [Quick Start](#quick-start-repository-based) - Get up and running in 5 minutes
+- [Quick Start](#quick-start-repository-based) - Get up and running in minutes
 - [Requirements](#requirements) - System and dependency requirements
 - [Tag Your Resources](#tag-your-resources) - How to tag instances and volumes
 - [Tag Format](#tag-format) - Complete tag syntax reference
