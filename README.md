@@ -13,7 +13,7 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 ## 📋 Quick Navigation
 
 - [Quick Start](#quick-start-repository-based) - Get up and running in minutes
-- [Requirements](#requirements) - System and dependency requirements
+- [Requirements](#requirements---openstack) - System and dependency requirements
 - [Tag Your Resources](#tag-your-resources) - How to tag instances and volumes
 - [Tag Format](#tag-format) - Complete tag syntax reference
 - [Real-World Examples](#real-world-examples) - Practical tagging scenarios
@@ -30,7 +30,24 @@ Automated backup and snapshot system for OpenStack resources based on tags.
 
 ## Quick Start (Repository-based)
 
-### Requirements
+### Requirements - OpenStack
+
+### Usage of QEMU Guest Agent
+It is highly recommended to use the QEMU Guest Agent for snapshots and backups. It ensures higher data integrity by performing a file-system freeze (quiesce) before the snapshot is created.
+
+#### Prepare OpenStack Images and Instances to be backed up
+```bash
+openstack image set --property hw_qemu_guest_agent=yes <IMAGE_NAME_OR_ID>
+```
+
+#### Install qemu guest agent package
+```bash
+# Example for Ubuntu/Debian
+sudo apt update && sudo apt install qemu-guest-agent -y
+sudo systemctl enable --now qemu-guest-agent
+```
+
+### Requirements - Management Instance
 - Linux OS
 - Python 3.8+
 - Valid OpenStack credentials
